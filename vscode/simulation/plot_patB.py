@@ -60,14 +60,19 @@ else:
     end_idx = peak_idx + s2.right
     
     plt.figure(figsize=(10, 6))
-    # ユーザーが index を参照しやすいため x 軸を index に変更
-    plt.plot(mean_waveform, color='blue', label="平均波形")
+    
+    # すべての波形を薄く表示
+    for waveform in all_waveforms:
+        plt.plot(waveform, color='gray', alpha=0.1, linewidth=0.5)
+    
+    # 平均波形を目立つ色で表示
+    plt.plot(mean_waveform, color='black', linewidth=1.5, label="平均波形")
     
     # 切り出し範囲を垂直線で表示
     plt.axvline(start_idx, color='red', linestyle='--', label=f"窓開始: {start_idx}")
     plt.axvline(end_idx, color='red', linestyle='--', label=f"窓終了: {end_idx}")
     
-    plt.title("Average Waveform and FFT Window (patB)")
+    plt.title("Waveforms and FFT Window (patB)")
     plt.xlabel("Index")
     plt.ylabel("Amplitude [V]")
     plt.legend()
