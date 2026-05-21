@@ -9,6 +9,7 @@ import numpy as np
 """
 vscode\simulation\data\patB_csv 内の実験データを読み込み、
 平均波形および FFT スペクトル（個別・平均）をプロットするスクリプト。
+切り出し範囲（窓関数）の可視化機能付き。
 """
 
 # =============================================================================
@@ -40,7 +41,7 @@ else:
         
         volts = df.iloc[:, 1].astype(float)
         bias = volts.mode().iloc[0]
-        waveform = volts - bias
+        waveform = (volts - bias).values
         all_waveforms.append(waveform)
         
         # FFT スペクトルの算出
@@ -49,22 +50,33 @@ else:
         yf, freq = s2.make_fftdata(cut_wave, s2.exp_dt)
         all_yf.append(yf)
 
-    # 1. 平均波形のプロット
-    print("Plotting average waveform...")
+    # 1. 平均波形のプロットと切り出し範囲の可視化
+    print("Plotting average waveform with window visualization...")
     mean_waveform = np.mean(all_waveforms, axis=0)
+    
+    # 窓の範囲を特定 (平均波形のピークを基準とする)
+    peak_idx = np.nanargmax(mean_waveform)
+    start_idx = peak_idx - s2.left
+    end_idx = peak_idx + s2.right
+    
     plt.figure(figsize=(10, 6))
-    # インデックスまたは時間軸でプロット (サンプリング 0.5ns)
-    time = np.arange(len(mean_waveform)) * s2.exp_dt * 1e6 # [us]
-    plt.plot(time, mean_waveform, color='blue')
-    plt.title("Average Waveform (patB)")
-    plt.xlabel("Time [us]")
+    # ユーザーが index を参照しやすいため x 軸を index に変更
+    plt.plot(mean_waveform, color='blue', label="平均波形")
+    
+    # 切り出し範囲を垂直線で表示
+    plt.axvline(start_idx, color='red', linestyle='--', label=f"窓開始: {start_idx}")
+    plt.axvline(end_idx, color='red', linestyle='--', label=f"窓終了: {end_idx}")
+    
+    plt.title("Average Waveform and FFT Window (patB)")
+    plt.xlabel("Index")
     plt.ylabel("Amplitude [V]")
+    plt.legend()
     plt.grid(True)
     plt.tight_layout()
     waveform_path = os.path.join(output_dir, "exp_waveform_patB.png")
     plt.savefig(waveform_path)
     plt.close()
-    print(f"Saved average waveform to {waveform_path}")
+    print(f"Saved average waveform with window to {waveform_path}")
 
     # 2. FFT スペクトルのプロット (個別 + 平均)
     print("Plotting FFT spectra...")
@@ -88,4 +100,5 @@ else:
     plt.close()
     print(f"Saved FFT plot to {fft_path}")
 
+    print(f"Window Summary: Index {start_idx} to {end_idx} (Total {end_idx - start_idx} points)")
     print("Done.")
