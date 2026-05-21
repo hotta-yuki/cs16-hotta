@@ -1,0 +1,31 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Project specific ignores
+.tmp.drivedownload/
+.tmp.driveupload/
+install-tl.zip
+install-tl-20260520/
+tmp/
+tmp_output/
+pic/
+
+# Large documents and archives (keep code only in git ideally)
+試験問題/
+資料/
+進捗報告/**/*.pdf
+進捗報告/**/*.synctex.gz
+
+# VS Code specific
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+
+# LLM history artifacts (audit logs should be tracked, but maybe not the raw DB if large)
+# scripts/history.db

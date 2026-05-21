@@ -1,0 +1,109 @@
+\documentclass{jarticle}
+\usepackage[dvipdfmx]{graphicx}
+\topmargin       -0.4mm
+\oddsidemargin   -0.4mm
+\evensidemargin  -0.4mm
+\headheight       0.0mm
+\headsep          0.0mm
+\footskip        10.0mm
+%
+\textheight     247.0mm
+\textwidth      170.0mm
+%
+\setlength{\parindent}{1zw}
+%
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\makeatletter
+\def \fgcaption{\def \@captype{figure} \caption}
+\def \tbcaption{\def \@captype{table} \caption}
+\makeatother
+\def \figurename{Fig.}
+\def \tablename{Table}
+%
+\def\topfraction{.95}
+\def\bottomfraction{.95}
+\def\textfraction{.05}
+\def\floatpagefraction{.8}
+\def\dbltopfraction{.95}
+\def\dbltextfraction{.05}
+\def\dblfloatpagefraction{.8}
+%
+\pagestyle{empty}
+%
+\begin{document}
+%
+\begin{center}
+ \begin{tabular}{|c|c|c|} \hline
+  \parbox{50mm}{\vspace{1mm} \centering{\Large\bf 2026/05/28}} & 
+  \parbox{55mm}{\vspace{1mm} \centering{\Large\bf B4　堀田裕樹}} & 
+  \parbox{50mm}{\vspace{1mm} \centering{\Large\bf No.~6}}
+  \\ [2mm] \hline
+%
+  \multicolumn{3}{|c|}{%
+   \parbox{155mm}{\centering\Large\bf
+    \vspace{2mm}
+    超音波探傷試験における実験データとシミュレーション結果の比較解析
+   }
+  }
+  \\ [3mm] \hline\hline
+%
+  \multicolumn{3}{|c|}{%
+   \parbox{155mm}{\large\vspace{2mm}
+%
+    {\Large\bf 今月の目標}
+%
+    \begin{itemize}
+     \item 超音波実験データ（patA等）の解析パイプラインの構築
+     \item シミュレーション結果と実験結果の周波数スペクトル比較の準備
+     \item 研究の透明性を担保するための監査ログ管理環境の整備
+    \end{itemize}
+%
+    {\Large\bf 進捗の要点}
+%
+    \begin{itemize}
+     \item 共通信号処理ライブラリ（\texttt{sourse\_new\_2.py}）の仕様確認と使用説明書の作成
+     \item 実験データの個別波形および平均FFTスペクトルを重畳描画する専用スクリプトの実装
+     \item 生成AI利用の透明性と客観性を証明する監査ログ（Academic Integrity）記録環境の構築
+    \end{itemize}
+%
+    {\Large\bf 今後の実施事項}
+%
+    \begin{itemize}
+     \item 構築したツールを用いた他データセット（patBなど）の周波数特性評価
+     \item シミュレーション結果（FDTD法）と実験結果の定量的な誤差評価（RMSE等の算出）
+    \end{itemize}
+%
+   }
+  }
+  \\ [3mm] \hline
+ \end{tabular}
+%
+\end{center}
+%
+\par
+
+本週は，超音波実験データの解析パイプライン構築と，研究の透明性を担保する環境整備を並行して進めた．具体的には，既存の信号処理ライブラリ（\texttt{sourse\_new\_2.py}）の機能（ピーク切り出し，ゼロパディング付きFFT等）を解析し，ドキュメント化を行った．さらに，このライブラリを活用して，実験データ（\texttt{data/patA}内の複数CSVファイル）を個別に読み込み，各波形のFFTスペクトルと全体の平均スペクトルを同一図上に重畳してプロットする専用スクリプト（\texttt{plot\_experimental\_only.py}）を新たに実装した．また，コード生成等におけるAI利用の透明性と客観性を証明するため，日時・プロンプト・事実確認プロセスを詳細に記録する監査ログシステムを構築し，運用を開始した．
+
+実装した可視化スクリプトにより，Fig.~\ref{fig:graph1} に示すように，実験データ間のばらつき（透過度を用いた個別プロット）と全体的な周波数トレンド（平均プロット）を同時に視覚化することに成功した．
+
+この可視化手法の確立により，実験データに含まれるノイズや外れ値の影響を直感的に把握しつつ，代表的な周波数特性を定量的に評価可能となった．これは，今後のシミュレーション波形との高精度な比較解析に向けた不可欠な基盤である．さらに，監査ログの導入によって，学術的誠実性（Academic Integrity）を確保した持続可能かつ再現可能な研究開発フローが確立された点も，プロジェクト管理上の重要な成果である．
+
+今後は，今回構築した解析ツールを用いて他の実験データセットの特性を評価するとともに，FDTDシミュレーション結果との定量的な誤差評価へと研究を進める．
+%
+\begin{figure}[htbp]
+  \begin{center}
+   \includegraphics [width=12cm]{../../tmp_output/exp_fft_individual_patA.png}
+  \end{center}
+\vspace{-7mm}
+\caption{Individual and average FFT spectra of experimental data (patA).}
+\label{fig:graph1}
+\end{figure}
+%
+\begin{thebibliography}{9}
+\bibitem{jsndi}
+日本非破壊検査協会編, ''超音波探傷試験 III'', 日本非破壊検査協会.
+\end{thebibliography}
+%
+\end{document}

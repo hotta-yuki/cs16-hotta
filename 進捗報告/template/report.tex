@@ -1,0 +1,119 @@
+\documentclass{jarticle}
+\usepackage[dvipdfmx]{graphicx}
+\topmargin       -0.4mm
+\oddsidemargin   -0.4mm
+\evensidemargin  -0.4mm
+\headheight       0.0mm
+\headsep          0.0mm
+\footskip        10.0mm
+%
+\textheight     247.0mm
+\textwidth      170.0mm
+%
+\setlength{\parindent}{1zw}
+%
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\makeatletter
+\def \fgcaption{\def \@captype{figure} \caption}
+\def \tbcaption{\def \@captype{table} \caption}
+\makeatother
+\def \figurename{Fig.}
+\def \tablename{Table}
+%
+\def\topfraction{.95}
+\def\bottomfraction{.95}
+\def\textfraction{.05}
+\def\floatpagefraction{.8}
+\def\dbltopfraction{.95}
+\def\dbltextfraction{.05}
+\def\dblfloatpagefraction{.8}
+%
+\pagestyle{empty}
+%
+\begin{document}
+%
+\begin{center}
+ \begin{tabular}{|c|c|c|} \hline
+  \parbox{50mm}{\vspace{1mm} \centering{\Large\bf 202*/**/**}} & 
+  \parbox{55mm}{\vspace{1mm} \centering{\Large\bf B4　姓名　○○}} & 
+  \parbox{50mm}{\vspace{1mm} \centering{\Large\bf No.~1}}
+  \\ [2mm] \hline
+%
+  \multicolumn{3}{|c|}{%
+   \parbox{155mm}{\centering\Large\bf
+    \vspace{2mm}
+    ＊＊＊の研究（研究題目）% ここに研究題目を書く
+   }
+  }
+  \\ [3mm] \hline\hline
+%
+  \multicolumn{3}{|c|}{%
+   \parbox{155mm}{\large\vspace{2mm}
+%
+    {\Large\bf 今月の目標}
+%
+    \begin{itemize}
+     \item ＊＊に関する計測実験とデータ解析を完了
+    \end{itemize}
+%
+    % 進捗の要点(箇条書)
+    % 前回の要点と同じものを挙げない
+    {\Large\bf 進捗の要点}
+%
+    \begin{itemize}
+     \item 今回進捗した要点を列挙する，前回の要点と同じものを挙げない
+    \end{itemize}
+%
+    % 今後の実施事項(箇条書)
+    % 前回の事項と同じものを挙げない
+    {\Large\bf 今後の実施事項}
+%
+    \begin{itemize}
+     \item 次回までに実施する事項を列挙する，前回の事項と同じものを挙げない
+    \end{itemize}
+%
+   }
+  }
+  \\ [3mm] \hline
+ \end{tabular}
+%
+\end{center}
+%
+% ここから下は進捗内容を具体的に書くこと．
+% 例えば，実験を行ったのなら，その方法と結果を載せる．
+% また，アルゴリズムを考えた場合は，そのアルゴリズムの詳しい説明を書く．
+%
+%\par
+
+この報告書では，月初めの回で月末までの目標を説明する．\\以降の回では前回からの進捗を報告する．次の点について明記する．
+\begin{enumerate}
+\item 何をどのように進めたのか？
+\item それによって，どのような結果が得られたのか？
+\item その結果がどのような意味を持つのか？
+\item 次回報告までの今後の検討事項
+\end{enumerate}
+\par
+グラフ等は例えばFig.~\ref{fig:graph1}に示すように図を使い説明する．参考にした本，論文があれば引用する\cite{ito1991}．
+%
+\begin{figure}[htbp]
+  \begin{center}
+   \includegraphics [scale=0.5]{./plot.png}	% jpgでも可
+  \end{center}
+\vspace{-7mm}
+\caption{Difference of reaction force.}
+\label{fig:graph1}
+\end{figure}
+%
+
+注）このひな形は，TeX liveをインストールした環境において，pdf化が可能である．
+%
+
+\begin{thebibliography}{9}
+\bibitem{ito1991}
+伊藤和人, ''\LaTeX トータルガイド'', 秀和システムトレーディング, 1991.
+\end{thebibliography}
+%
+%
+\end{document}

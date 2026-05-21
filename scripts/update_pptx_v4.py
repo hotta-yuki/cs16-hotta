@@ -1,0 +1,71 @@
+import re
+from pptx import Presentation
+import os
+
+md_path = r'text\mml\GMM_Presentation_Detailed_30.md'
+pptx_path = r'資料\GMM_Presentation_fixed_v2.pptx' # Using v2 as base as requested
+output_path = r'資料\GMM_Presentation_fixed_v4.pptx'
+
+# 1. Extract formulas from Markdown (already has \mathbf)
+formulas_by_slide = {}
+current_slide = 0
+
+with open(md_path, 'r', encoding='utf-8') as f:
+    for line in f:
+        slide_match = re.search(r'## スライド(\d+)', line)
+        if slide_match:
+            current_slide = int(slide_match.group(1))
+            formulas_by_slide[current_slide] = []
+        
+        # Find all formulas in the slide
+        # Inline $...$
+        inline = re.findall(r'\$([^$]+)\$', line)
+        if inline:
+            formulas_by_slide[current_slide].extend(inline)
+        
+        # Block $$...$$
+        block = re.findall(r'\$\$\s*(.+?)\s*\$$', line)
+        if block:
+            # The regex for block needs to be careful with the trailing $$
+            block_clean = re.findall(r'\$\$\s*(.+?)\s*\$\$', line)
+            if block_clean:
+                formulas_by_slide[current_slide].extend(block_clean)
+
+# 2. Open PPTX
+if not os.path.exists(pptx_path):
+    print(f"File not found: {pptx_path}")
+    exit(1)
+
+prs = Presentation(pptx_path)
+
+# 3. Apply to slides 9 and onwards
+for i, slide in enumerate(prs.slides):
+    slide_num = i + 1
+    if slide_num < 9:
+        continue
+    
+    if slide_num not in formulas_by_slide:
+        continue
+    
+    target_formulas = formulas_by_slide[slide_num]
+    if not target_formulas:
+        continue
+    
+    formula_idx = 0
+    for shape in slide.shapes:
+        if hasattr(shape, "text_frame"):
+            text = shape.text
+            # Look for math-like indicators (including the beautified ones from v2)
+            if any(k in text for k in ["Σ", "π", "μ", "θ", "\\", "=", "p(", "r_nk", "N_k", "L ="]):
+                if formula_idx < len(target_formulas):
+                    new_formula = target_formulas[formula_idx]
+                    print(f"Slide {slide_num}: Replacing math in shape with '{new_formula[:40]}...'")
+                    
+                    shape.text_frame.clear()
+                    p = shape.text_frame.paragraphs[0]
+                    run = p.add_run()
+                    run.text = new_formula
+                    formula_idx += 1
+
+prs.save(output_path)
+print(f"Saved to {output_path}")
