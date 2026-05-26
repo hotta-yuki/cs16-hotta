@@ -54,10 +54,19 @@ else:
         waveform = (volts - bias).values
         all_waveforms.append(waveform)
         
-        # FFT スペクトルの算出 (sourse_new_2 の関数を使用)
-        # s2.make_fftdata は自動的に 2^14 にゼロパディングして FFT を行う
-        yf, freq = s2.make_fftdata(waveform, s2.exp_dt)
-        all_yf.append(yf)
+        # FFT スペクトルの算出
+        # s2.make_fftdata は前後に均等にゼロパディングするため、生波形を入れると不連続点が生じノイズになります。
+        # そこで、末尾にのみゼロパディング (16384点になるまで) を行い、自前で FFT を計算します。
+        padding_needed = s2.fft_N - len(waveform)
+        if padding_needed > 0:
+            waveform_padded = np.pad(waveform, (0, padding_needed), mode='constant')
+        else:
+            waveform_padded = waveform[:s2.fft_N]
+            
+        yf = np.fft.rfft(waveform_padded) / (s2.fft_N / 2)
+        all_yf.append(np.abs(yf))
+        
+    freq = np.fft.rfftfreq(s2.fft_N, d=s2.exp_dt)
 
     # 1. 時間軸波形のプロット (平均波形のみ、インデックス対電圧)
     print(f"Plotting average waveform for {pattern_name}...")
