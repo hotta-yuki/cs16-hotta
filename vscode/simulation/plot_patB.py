@@ -9,7 +9,6 @@ import numpy as np
 """
 vscode\simulation\data\patB_csv 内の実験データを読み込み、
 平均波形および FFT スペクトル（個別・平均）をプロットするスクリプト。
-切り出し範囲（窓関数）の可視化機能付き。
 """
 
 # =============================================================================
@@ -45,34 +44,24 @@ else:
         all_waveforms.append(waveform)
         
         # FFT スペクトルの算出
-        # s2.left, s2.right は sourse_new_2.py で定義されている (1024, 3072)
         cut_wave = s2.kiritori2(waveform, s2.left, s2.right)
         yf, freq = s2.make_fftdata(cut_wave, s2.exp_dt)
         all_yf.append(yf)
 
-    # 1. 平均波形のプロットと切り出し範囲の可視化
-    print("Plotting average waveform with window visualization...")
+    # 1. 時間軸波形のプロット
+    print("Plotting waveforms...")
     mean_waveform = np.mean(all_waveforms, axis=0)
-    
-    # 窓の範囲を特定 (平均波形のピークを基準とする)
-    peak_idx = np.nanargmax(mean_waveform)
-    start_idx = peak_idx - s2.left
-    end_idx = peak_idx + s2.right
     
     plt.figure(figsize=(10, 6))
     
-    # すべての波形を薄く表示
-    for waveform in all_waveforms:
-        plt.plot(waveform, color='gray', alpha=0.1, linewidth=0.5)
+    # 個別波形を薄く表示
+    for wf in all_waveforms:
+        plt.plot(wf, color='gray', alpha=0.1, linewidth=0.5)
     
-    # 平均波形を目立つ色で表示
+    # 平均波形を太く表示
     plt.plot(mean_waveform, color='black', linewidth=1.5, label="平均波形")
     
-    # 切り出し範囲を垂直線で表示
-    plt.axvline(start_idx, color='red', linestyle='--', label=f"窓開始: {start_idx}")
-    plt.axvline(end_idx, color='red', linestyle='--', label=f"窓終了: {end_idx}")
-    
-    plt.title("Waveforms and FFT Window (patB)")
+    plt.title("Waveforms (patB)")
     plt.xlabel("Index")
     plt.ylabel("Amplitude [V]")
     plt.legend()
@@ -81,7 +70,7 @@ else:
     waveform_path = os.path.join(output_dir, "exp_waveform_patB.png")
     plt.savefig(waveform_path)
     plt.close()
-    print(f"Saved average waveform with window to {waveform_path}")
+    print(f"Saved waveform plot to {waveform_path}")
 
     # 2. FFT スペクトルのプロット (個別 + 平均)
     print("Plotting FFT spectra...")
@@ -105,5 +94,4 @@ else:
     plt.close()
     print(f"Saved FFT plot to {fft_path}")
 
-    print(f"Window Summary: Index {start_idx} to {end_idx} (Total {end_idx - start_idx} points)")
     print("Done.")
