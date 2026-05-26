@@ -55,14 +55,10 @@ else:
     
     plt.figure(figsize=(10, 6))
     
-    # 個別波形を薄く表示
-    for wf in all_waveforms:
-        plt.plot(wf, color='gray', alpha=0.1, linewidth=0.5)
-    
-    # 平均波形を太く表示
+    # 平均波形のみを表示
     plt.plot(mean_waveform, color='black', linewidth=1.5, label="平均波形")
     
-    plt.title("Waveforms (patB)")
+    plt.title("Average Waveform (patB)")
     plt.xlabel("Index")
     plt.ylabel("Amplitude [V]")
     plt.legend()
