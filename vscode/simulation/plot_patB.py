@@ -40,7 +40,8 @@ else:
         
         volts = df.iloc[:, 1].astype(float)
         bias = volts.mode().iloc[0]
-        waveform = (volts - bias).values
+        # インデックス6000まででカット
+        waveform = (volts - bias).iloc[:6000].values
         all_waveforms.append(waveform)
         
         # FFT スペクトルの算出
