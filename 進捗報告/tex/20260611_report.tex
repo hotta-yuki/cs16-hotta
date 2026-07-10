@@ -1,0 +1,100 @@
+\documentclass{jarticle}
+\usepackage[dvipdfmx]{graphicx}
+\topmargin       -10.0mm
+\oddsidemargin   -0.4mm
+\evensidemargin  -0.4mm
+\headheight       0.0mm
+\headsep          0.0mm
+\footskip        10.0mm
+%
+\textheight     260.0mm
+\textwidth      170.0mm
+%
+\setlength{\parindent}{1zw}
+%
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\makeatletter
+\def \fgcaption{\def \@captype{figure} \caption}
+\def \tbcaption{\def \@captype{table} \caption}
+\makeatother
+\def \figurename{Fig.}
+\def \tablename{Table}
+%
+\def\topfraction{.99}
+\def\bottomfraction{.99}
+\def\textfraction{.01}
+\def\floatpagefraction{.99}
+%
+\pagestyle{empty}
+%
+\begin{document}
+%
+\begin{center}
+ \begin{tabular}{|c|c|c|} \hline
+  \parbox{50mm}{\vspace{1mm} \centering{\Large\bf 2026/06/11}} & 
+  \parbox{55mm}{\vspace{1mm} \centering{\Large\bf B4　堀田裕樹}} & 
+  \parbox{50mm}{\vspace{1mm} \centering{\Large\bf No.~9}}
+  \\ [2mm] \hline
+%
+  \multicolumn{3}{|c|}{%
+   \parbox{155mm}{\centering\Large\bf
+    \vspace{1mm}
+    widthの細分化シミュレーションによる連続的な特性変化の評価
+   }
+  }
+  \\ [2mm] \hline\hline
+%
+  \multicolumn{3}{|c|}{%
+   \parbox{155mm}{\large\vspace{1mm}
+%
+    {\Large\bf 今月の目標}
+%
+
+%
+    {\Large\bf 進捗の要点}
+%
+    \begin{itemize}
+     \item widthのシミュレーション間隔を0.05mm刻みに細分化（0.15mm--1.00mm）
+     \item 波形およびFFTスペクトルの変化をアニメーション(GIF)化し，連続的な遷移を確認
+    \end{itemize}
+%
+    {\Large\bf 今後の実施事項}
+%
+    \begin{itemize}
+     \item 実験データとの詳細なマッチング
+    \end{itemize}
+%
+   }
+  }
+  \\ [2mm] \hline
+ \end{tabular}
+%
+\end{center}
+%
+\par
+先週のシミュレーションでは，widthの変化間隔が大きく，特性変化の連続性を把握することが困難であった．そこで本週は，widthを 0.15mm から 1.00mm まで 0.05mm 刻みでシミュレーションを実施した．
+
+動的な変化を視覚的に評価するため，波形およびFFTの遷移をGIFアニメーションとして作成した．
+
+これにより,widthの増加につれて波形の振幅が徐々に減容する様子が確認できた.またテイル波の先頭部分に関しては増減が確認された.
+スペクトルに関しても,widthの増加につれて振幅が減容する様子が確認できた.またディップの位置が移動したり消失が確認された.
+\begin{center}
+  \begin{minipage}[b]{0.49\linewidth}
+    \centering
+    \includegraphics[width=6.8cm]{../../data_im/comparison_plots/comparison_waveform.png}
+    \vspace{-2mm}
+    \fgcaption{Waveform (Representative: Pitch 2000)}
+  \end{minipage}
+  \begin{minipage}[b]{0.49\linewidth}
+    \centering
+    \includegraphics[width=6.8cm]{../../data_im/comparison_plots/comparison_fft.png}
+    \vspace{-2mm}
+    \fgcaption{FFT (Representative: Pitch 2000)}
+  \end{minipage}
+  \label{fig:results}
+\end{center}
+
+%
+\end{document}

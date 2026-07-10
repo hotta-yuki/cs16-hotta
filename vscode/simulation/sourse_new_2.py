@@ -63,8 +63,10 @@ dt     = dx / cl / np.sqrt(6)  # シミュレーションの時間ステップ [
 exp_dt = 0.0005E-06             # 実験のサンプリング間隔 [s] (= 0.5 ns)
 
 # kiritori2 で波形を切り出す際のピーク前後点数
-left  = int(2 ** 10)       # ピーク左側に含める点数 (1024点)
-right = int((2 ** 10) * 3) # ピーク右側に含める点数 (3072点) → 合計 4096点
+thin = int(2 ** 9)        # 薄いほう (512点)
+thick = int(2 ** 10)      # 厚いほう (1024点)
+left  = thick             # ピーク左側に含める点数
+right = thick * 3          # ピーク右側に含める点数 
 
 # 実験データの切り出し範囲インデックス (使用する関数による)
 exp_a1 = 0
@@ -101,7 +103,7 @@ _depth_sim = {
 # =============================================================================
 # ★ 形状選択 (ここを変更する)
 # =============================================================================
-target_shape = "Kusabi"  # "Kukei" / "Sankaku" / "Kusabi" / "Ushape"
+target_shape = "Kukei"  # "Kukei" / "Sankaku" / "Kusabi" / "Ushape"
 
 pitch_list      = [125, 150, 175, 200]
 depth_index_all = _depth_exp[target_shape]   # 実験データの depth 一覧 (辞書)
@@ -797,7 +799,7 @@ def make_fftdata_wavy(data, dt_sample, wave_speed=cl, wavenumber_type='standard'
 
     return np.abs(yf), k_values
 
-
+# star
 def select_pitch_and_image_wavy(pitch, depth_list):
     """
     シミュレーションデータを波数軸で正規化 FFT plot する。

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>夕暮れの草原 - 3D自然散歩ゲーム</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <!-- スタート / 一時停止 オーバーレイ -->
+  <div id="blocker">
+    <div id="instructions">
+      <h1>夕暮れの草原</h1>
+      <p class="subtitle">Zelda-inspired Golden Hour Walking Game</p>
+      
+      <button class="play-btn" id="play-button">散歩を始める</button>
+      
+      <!-- メニュー内のBGMコントロール -->
+      <div style="margin-top: 15px;">
+        <button class="sound-menu-btn" id="sound-toggle-btn" title="BGMの再生/ミュート">
+          <svg class="sound-icon" viewBox="0 0 24 24">
+            <path id="speaker-path" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+          </svg>
+          <span id="sound-status">BGM: ON</span>
+        </button>
+      </div>
+      
+      <div class="controls-desc">
+        <h3>散歩のしかた</h3>
+        <div class="control-item">
+          <span>歩く / 移動</span>
+          <span><span class="key">W</span> <span class="key">A</span> <span class="key">S</span> <span class="key">D</span> または <span class="key">↑</span><span class="key">←</span><span class="key">↓</span><span class="key">→</span></span>
+        </div>
+        <div class="control-item">
+          <span>ジャンプ</span>
+          <span><span class="key">Space</span></span>
+        </div>
+        <div class="control-item">
+          <span>BGMのミュート切替</span>
+          <span><span class="key">M</span></span>
+        </div>
+        <div class="control-item">
+          <span>立ち止まる（メニュー）</span>
+          <span><span class="key">Esc</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3D描画用キャンバス -->
+  <canvas id="canvas"></canvas>
+
+  <!-- エントリーポイント -->
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

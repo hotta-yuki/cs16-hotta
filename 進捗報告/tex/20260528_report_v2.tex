@@ -37,8 +37,8 @@
 \begin{center}
  \begin{tabular}{|c|c|c|} \hline
   \parbox{50mm}{\vspace{1mm} \centering{\Large\bf 2026/05/28}} & 
-  \parbox{55mm}{\vspace{1mm} \centering{\Large\bf B4　堀田　結貴}} & 
-  \parbox{50mm}{\vspace{1mm} \centering{\Large\bf No.~1}}
+  \parbox{55mm}{\vspace{1mm} \centering{\Large\bf B4　堀田　裕樹}} & 
+  \parbox{50mm}{\vspace{1mm} \centering{\Large\bf No.~7}}
   \\ [2mm] \hline
 %
   \multicolumn{3}{|c|}{%
@@ -61,17 +61,12 @@
     {\Large\bf 進捗の要点}
 %
     \begin{itemize}
-     \item 試験体 patB および patC の実験データ（パルスエコー）を取得
-     \item patA, patB, patC の全データに対し，インデックス6000でのカット処理を実施
+     \item 試験体 patB および patC の実験データを取得
      \item 時間軸波形の平均化，および各波形の FFT 変換・平均スペクトルの算出を完了
     \end{itemize}
 %
     {\Large\bf 今後の実施事項}
 %
-    \begin{itemize}
-     \item シミュレーション結果との詳細な比較
-     \item 音響 Wood 異常の発生周波数と周期（pitch）の関係性の評価
-    \end{itemize}
 %
    }
   }
@@ -81,14 +76,13 @@
 \end{center}
 %
 \section{はじめに}
-今週は，新たに試験体 patB および patC を用いたパルスエコー実験を行い，反射波形データを取得した．
+今週は，試験体 patB および patC を用いたパルスエコー実験を行い，反射波形データを取得した．
 また，既存の patA を含む計3パターンのデータに対して，時間軸および周波数軸での解析を行った．
-解析には共通ライブラリ \texttt{sourse\_new\_2.py} をベースとした自作スクリプトを用いている．
 
 \section{実験データの解析手順}
 取得した各 CSV データに対し，以下の処理を行った．
 \begin{enumerate}
-    \item \textbf{前処理}: 電圧データの最頻値をバイアスとして除去し，インデックス 0 から 6000 までの範囲（約 3 $\mu$s）を抽出した．
+    \item \textbf{前処理}: インデックス 0 から 6000 までの範囲（約 3 $\mu$s）を抽出した．
     \item \textbf{時間軸プロット}: 全データの平均波形を算出し，「インデックス vs 電圧」の形式でプロットした．
     \item \textbf{周波数軸解析}: インデックス 6000 までのデータに対し，$2^{14} = 16384$ 点に達するまで末尾をゼロパディングし，FFT 変換を実施した．
 \end{enumerate}
@@ -101,19 +95,19 @@ Fig. 1 に patA, patB, patC の平均波形を示す．また，Fig. 2 に各試
     \begin{tabular}{c}
       \begin{minipage}{0.33\hsize}
         \begin{center}
-          \includegraphics[width=\textwidth]{../../vscode/simulation/tmp_output/exp_waveform_patA_custom.png}
+          \includegraphics[width=\textwidth]{../../tmp_output/exp_waveform_patA.png}
           \\ (a) patA
         \end{center}
       \end{minipage}
       \begin{minipage}{0.33\hsize}
         \begin{center}
-          \includegraphics[width=\textwidth]{../../vscode/simulation/tmp_output/exp_waveform_patB_custom.png}
+          \includegraphics[width=\textwidth]{../../tmp_output/exp_waveform_patB.png}
           \\ (b) patB
         \end{center}
       \end{minipage}
       \begin{minipage}{0.33\hsize}
         \begin{center}
-          \includegraphics[width=\textwidth]{../../vscode/simulation/tmp_output/exp_waveform_patC_custom.png}
+          \includegraphics[width=\textwidth]{../../tmp_output/exp_waveform_patC.png}
           \\ (c) patC
         \end{center}
       \end{minipage}
@@ -129,19 +123,19 @@ Fig. 1 に patA, patB, patC の平均波形を示す．また，Fig. 2 に各試
     \begin{tabular}{c}
       \begin{minipage}{0.33\hsize}
         \begin{center}
-          \includegraphics[width=\textwidth]{../../vscode/simulation/tmp_output/exp_fft_individual_patA_custom.png}
+          \includegraphics[width=\textwidth]{../../tmp_output/exp_fft_individual_patA.png}
           \\ (a) patA
         \end{center}
       \end{minipage}
       \begin{minipage}{0.33\hsize}
         \begin{center}
-          \includegraphics[width=\textwidth]{../../vscode/simulation/tmp_output/exp_fft_individual_patB_custom.png}
+          \includegraphics[width=\textwidth]{../../tmp_output/exp_fft_individual_patB.png}
           \\ (b) patB
         \end{center}
       \end{minipage}
       \begin{minipage}{0.33\hsize}
         \begin{center}
-          \includegraphics[width=\textwidth]{../../vscode/simulation/tmp_output/exp_fft_individual_patC_custom.png}
+          \includegraphics[width=\textwidth]{../../tmp_output/exp_fft_individual_patC.png}
           \\ (c) patC
         \end{center}
       \end{minipage}
@@ -152,12 +146,9 @@ Fig. 1 に patA, patB, patC の平均波形を示す．また，Fig. 2 に各試
   \end{center}
 \end{figure}
 
-\section{まとめと今後の課題}
-各パターンのスペクトルにおいて，特定の周波数帯で減衰（ディップ）が確認された．今後は，試験体ごとの形状パラメータ（周期や深さ）とこれらのディップ位置の関係を定量的に評価し，音響 Wood 異常の特性を整理する．
-
+%参考文献
 \begin{thebibliography}{9}
-\bibitem{sourse2}
-堀田結貴, ''超音波信号処理ライブラリ sourse\_new\_2.py 仕様書'', 2026.
+\bibitem{ref1} \url{https://qiita.com/dokagui_tairan/items/11c4451e0283bbb797d8}
 \end{thebibliography}
 
 \end{document}

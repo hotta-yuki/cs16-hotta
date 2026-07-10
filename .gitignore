@@ -29,3 +29,13 @@ pic/
 
 # LLM history artifacts (audit logs should be tracked, but maybe not the raw DB if large)
 # scripts/history.db
+
+# Large data files and output directories
+Exam/
+data_im/
+output/
+*output/
+*.npz
+*.mp4
+*.gif
+node_modules/
