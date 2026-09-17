@@ -230,3 +230,20 @@ sim_pitch1250_depth200_width150.csv  ->  kukei_cupy_pitch125_width15_depth20.csv
 
 - ローカルは `origin/main` より 3 コミット先行している状態。**push は未実施**（ユーザー判断待ち）
 - `kukei_ani.py` 系の命名移行は引き続き未着手（前エントリの「未解決」のまま）
+
+### 追記（同日）— data_im/ のリネームと積み残しの改名
+
+- `data_im/` は `data/` にリネーム済み。コード・設定・ドキュメントの参照を追従させた（`0ac7cfa`）。
+  `.vscode/settings.json` の除外は `"**/data"` ではなくルート直下の `"data"` に限定している
+  （`**/data` だと追跡対象の `vscode/simulation/data/` まで検索から消えるため）
+- `data/sim_csv/` の 64 件を旧命名から新命名へ改名した（衝突0件、旧名の残存0件）。
+  内容は `tmp_output/sim_csv/` の 64 件と**全件バイト単位で同一**だったので、この複製は
+  削除しても情報は失われない（判断はユーザー）
+  ```
+  sim_pitch1250_depth125_width150.csv  ->  kukei_cupy_pitch125_width15_depth12.5.csv
+  ```
+- **まだ旧命名のもの**: `data/plots_simulation_fft/`・`plots_simulation_waveform/`（各64件、
+  `sim_pitch..._fft.png` 形式）、`data/comparison_plots/`・`data/ex_forms/`（各36件、
+  `p1250_d100_w150` 形式）。後者は追跡対象の `vscode/simulation/data/comparison_plots/`・
+  `avg_waveforms/` にも同形式のファイルがあるため、片方だけ改名すると食い違う。
+  `data/20260709/` のアニメーションは `kukei_ani.py` の命名移行が未着手のため保留
