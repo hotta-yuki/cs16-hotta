@@ -247,3 +247,10 @@ sim_pitch1250_depth200_width150.csv  ->  kukei_cupy_pitch125_width15_depth20.csv
   `p1250_d100_w150` 形式）。後者は追跡対象の `vscode/simulation/data/comparison_plots/`・
   `avg_waveforms/` にも同形式のファイルがあるため、片方だけ改名すると食い違う。
   `data/20260709/` のアニメーションは `kukei_ani.py` の命名移行が未着手のため保留
+
+- **上記「まだ旧命名のもの」は解消済み**（`82ab230`）。383 件を改名し、旧命名の残存は0件。
+  `vscode/simulation/data/` 側（追跡対象、各36件）も同時に改名したので、`data/` 側との
+  食い違いは無い。`vscode/simulation/tmp/` にも旧命名の sim CSV が37件残っていたので併せて処理。
+  未着手は `data/20260709/` のアニメーションのみ（`kukei_ani.py` の命名移行が先）
+- その過程で **`plot_simdata.py` / `plot_simdata_compare.py` の glob が壊れていたのを修正**。
+  `'sim_*.csv'` を探していたため、CSV 本体を改名した時点でプロットが1枚も生成されない状態だった
