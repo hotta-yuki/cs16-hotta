@@ -234,6 +234,35 @@ backs the audit log.
 > 「再生成可能な出力」であり、正のデータではありません。一方`scripts/history.db`は生成物ですが
 > 監査ログの実体を保持するため意図的にgit管理下に置かれています。
 
+## Git — save the work, every time
+
+The shared rules live in **`AGENTS.md` §10** (both agents read them); this is the Claude-side
+depth. The repo is synced through Google Drive, which keeps only the latest state — git is the only
+thing that can put a broken file back, so work that is not committed is work that can vanish.
+
+- **Commit after each meaningful unit of code work**, and always **before appending to
+  `HANDOFF.md`** — Antigravity needs a committed state to point at when it writes the report.
+  Also commit before starting a ~50 min sweep or a report build.
+- **Stage paths, not everything.** `git add vscode/... scripts/...`, never `git add -A`: Antigravity
+  may have uncommitted prose in `進捗報告/tex/`, `text/` or `資料/`, and those are its commits to make.
+- **Message format**: `<type>: <日本語の要約>` (`feat`/`fix`/`docs`/`refactor`/`chore`), body explains
+  *why* plus any verification result — the diff already shows *what*. End Claude Code's commits with
+  the `Co-Authored-By: Claude ...` trailer; it is part of the AI-usage record this repo must keep.
+- **Never** `push`, `reset --hard`, `clean -fd`, `checkout -- <path>` or history rewrites — these are
+  in the `deny` list below precisely because they destroy uncommitted work. `push` is the user's call;
+  commit, then tell them it is ready to push.
+- `scripts/history.db` and `進捗報告/gemini_log/` stay tracked (audit log); regenerable output
+  (`tmp_output/`, `pic/`, `output/`, `data_im/`) stays ignored. New ignore entries get a comment
+  saying why.
+
+> 📝 補足: **作業は必ず git にコミットする**(共通ルールは `AGENTS.md` 10章)。Google Drive 同期は
+> 最新状態しか持たないバックアップで、履歴ではありません。壊したものを戻せるのは git だけです。
+> コード作業の区切りごと、そして **`HANDOFF.md` に追記する前**に必ずコミットしてください
+> (Antigravity がレポートを書くとき、参照できる確定状態が必要になるため)。
+> `git add -A` は使わず、自分が変更したパスだけを stage します(Antigravity の書きかけの原稿を
+> 巻き込まないため)。`push`・`reset --hard`・`clean -fd`・`checkout -- <path>` は禁止で、
+> push を実行するかどうかはユーザーが判断します。
+
 ## Claude Code の権限設定 (`.claude/settings.json`)
 
 This repo has a minimal `.claude/settings.json` permissions allowlist for this single-user academic
