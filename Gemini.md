@@ -1,6 +1,27 @@
 # プロジェクト構成と AI 利用監査ログ (GEMINI.md)
 
 このファイルは、プロジェクトの構成管理および学術的誠実性（Academic Integrity）を担保するための AI 利用履歴（監査ログ）を記録するものです。
+Antigravity はこのファイルを最優先のルールファイルとして読み込みます。
+
+---
+
+## 0. Antigravity の役割 (Role)
+
+このプロジェクトでは **Antigravity と Claude Code を併用**しています。共通ルールは
+ルートの **`AGENTS.md`** にあります。まずそちらを読んでください。
+
+**Antigravity の担当は「文章」です。**
+
+- 週次進捗報告（`進捗報告/tex/`）の本文執筆・推敲
+- `text/`・`資料/` の原稿、プレゼン構成案、論文の要約
+- 日本語の構成・表現の改善
+
+**コードは編集しません。** `vscode/`・`scripts/`・`*.ps1` の修正が必要になった場合は、
+自分で直さずに **`HANDOFF.md` の末尾に依頼として追記**してください（書式は `AGENTS.md` 4章）。
+Claude Code 側がそれを読んで対応します。逆に Claude Code から文章化の依頼が来る場合も
+同じ `HANDOFF.md` 経由です。作業を始める前に `HANDOFF.md` の末尾を確認してください。
+
+コードや `tmp_output/` の図を**読む**のは自由です。制限がかかるのは書き込むときだけです。
 
 ---
 
@@ -46,11 +67,40 @@ C:\Users\cs16\lab\
 **保存先**: `進捗報告/gemini_log/YYYYMMDD.md`
 
 ### ログ生成システム
-Gemini CLI の会話ログを自動的に集計し、人間が読みやすい Markdown 形式に変換するシステムを導入しています。
+会話ログを自動的に集計し、人間が読みやすい Markdown 形式に変換するシステムを導入しています。
 
-- **`scripts/render_llm_history.py`**: 会話ログ (JSONL) を解析し、SQLite データベースで管理・レンダリングする本体スクリプト。
+- **`scripts/render_llm_history.py`**: 会話ログを解析し、SQLite データベースで管理・レンダリングする本体スクリプト。
 - **`update_history.ps1`**: ログ更新用 PowerShell スクリプト。
-- **VS Code Task**: `Update LLM History` を実行することで、いつでも最新のログを生成できます。
+- **VS Code Task**: `Update LLM History` を実行することで、いつでも最新のログを生成できます（`.vscode/tasks.json`。Antigravity からも同じタスクが使えます）。
+
+### 取り込み元（3ソース）
+
+| ツール | 取り込み | 場所 |
+|---|---|---|
+| Gemini CLI | 自動 | `C:\Users\cs16\.gemini\tmp\lab\chats\*.jsonl` |
+| Claude Code | 自動 | `C:\Users\cs16\.claude\projects\c--Users-cs16-lab\*.jsonl` |
+| **Antigravity** | **手動** | `進捗報告/antigravity_log/YYYYMMDD.md` |
+
+### ⚠ Antigravity は自分で記録する必要があります
+
+Antigravity は会話の全文をローカルに保存しません（`state.vscdb` にはタイトルの要約しか無く、
+同じ DB に OAuth トークンも入っているため機械的な解析はしません）。したがって
+**Antigravity 自身が記録を残す責任があります**。
+
+作業の区切りごとに `進捗報告/antigravity_log/YYYYMMDD.md`（当日の日付）へ追記してください。
+このファイルは `update_history.ps1` の実行時に監査ログへ自動で取り込まれます。書式:
+
+```markdown
+## <作業のタイトル>
+
+- **利用目的**: どのプロセスで何のために使ったか
+- **入力の要約**: 与えた指示の要点
+- **出力の要約**: 生成された内容の要点
+- **ファクトチェック**: 何をどう検証したか（一次情報源の確認など）
+- **成果物への反映**: 引用したのか、自分で書き直したのか
+```
+
+この5項目は下の「記録項目」に対応しています。埋められない項目があれば「該当なし」と明記してください。
 
 ### 記録項目
 1. **利用環境**: 利用日、モデル名・バージョン。
@@ -81,3 +131,21 @@ Gemini CLI の会話ログを自動的に集計し、人間が読みやすい Ma
 -   **文字コード**: LaTeX ソースは UTF-8 (BOMなし) で保存すること。
 -   **中間ファイル**: `build_report.ps1` は正常終了時に `.aux`, `.log` 等の中間ファイルを自動的にクリーンアップする。
 
+---
+
+## 4. Python 実行環境 (Python Execution Environment)
+
+プロジェクトで Python スクリプトを実行する際は、Anaconda の `venv` 環境を使用します。
+
+### 環境の有効化手順 (PowerShell)
+PowerShell 上で以下のコマンドを実行して Anaconda 環境のフックを読み込み、`venv` 環境をアクティベートしてください。
+
+```powershell
+& "C:\Users\cs16\anaconda3\shell\condabin\conda-hook.ps1"
+conda activate venv
+```
+
+または、1行で実行する場合：
+```powershell
+& "C:\Users\cs16\anaconda3\shell\condabin\conda-hook.ps1" ; conda activate venv
+```

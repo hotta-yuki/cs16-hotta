@@ -20,14 +20,14 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # ================== 調整パラメータ ==================
 
 DEFAULT_OUTPUT_DIR = "C:\\Users\\cs16\\lab\\vscode\\project1\\output"
-DEFAULT_WIDTH_MM = 6.00
-DEFAULT_DEPTH_MM = 0.00
-DEFAULT_PITCH_MM = 6.00
+DEFAULT_WIDTH_MM = 0.25
+DEFAULT_DEPTH_MM = 0.20
+DEFAULT_PITCH_MM = 17.00
 DEFAULT_PROBE_WIDTH_MM = 20
-DEFAULT_SAVE_INTERVAL = 10
-DEFAULT_GLOBAL_DOWNSAMPLE = 6
-DEFAULT_ZOOM_WIDTH_MM = 5.0
-DEFAULT_ZOOM_HEIGHT_MM = 5.0 #0.5
+DEFAULT_SAVE_INTERVAL = 20
+DEFAULT_GLOBAL_DOWNSAMPLE = 10
+DEFAULT_ZOOM_WIDTH_MM = 5
+DEFAULT_ZOOM_HEIGHT_MM = 0.7 #0.5
 
 def parse_cli_args():
     parser = argparse.ArgumentParser(
@@ -115,8 +115,8 @@ def make_base_name(f_pitch_m: float, f_depth_m: float, f_width_m: float, probe_d
 
 # ---------------- 物理パラメータ ----------------
 #here
-x_length    = 0.005      # [m] 変更
-z_length    = 0.005      # [m] 変更
+x_length    = 0.02      # [m] 変更
+z_length    = 0.04      # [m] 変更
 mesh_length = 1.0e-5    # メッシュサイズ [m]
 
 nx = int(round(x_length / mesh_length))
@@ -260,7 +260,7 @@ if sz_r > nz:
     sz_l = max(0, sz_l - (sz_r - nz))
     sz_r = nz
 
-t_max_steps = int(5 * x_length / cl / dt)
+t_max_steps = int(2 * x_length / cl / dt)
 
 
 # =======================================================================
@@ -790,11 +790,25 @@ def main():
     dtx = dt / dx
     dtz = dt / dz
 
-    # --- フレームリスト ---
-    g_frames_t1, g_frames_t3, g_frames_t5 = [], [], []
-    z_frames_t1, z_frames_t3, z_frames_t5 = [], [], []
-    g_frames_div, g_frames_curl = [], []
-    z_frames_div, z_frames_curl = [], []
+    # --- フレーム配列の事前確保 ---
+    num_save_frames = int(np.ceil(t_max_steps / save_interval))
+    
+    nx_down = int(np.ceil(nx / global_downsample))
+    nz_down = int(np.ceil(nz / global_downsample))
+    nx_zoom = x_end - x_start
+    nz_zoom = z_end - z_start
+
+    g_frames_t1 = np.zeros((num_save_frames, nx_down, nz_down), dtype=np.float32)
+    g_frames_t3 = np.zeros((num_save_frames, nx_down, nz_down), dtype=np.float32)
+    g_frames_t5 = np.zeros((num_save_frames, nx_down, nz_down), dtype=np.float32)
+    g_frames_div = np.zeros((num_save_frames, nx_down, nz_down), dtype=np.float32)
+    g_frames_curl = np.zeros((num_save_frames, nx_down, nz_down), dtype=np.float32)
+
+    z_frames_t1 = np.zeros((num_save_frames, nx_zoom, nz_zoom), dtype=np.float32)
+    z_frames_t3 = np.zeros((num_save_frames, nx_zoom, nz_zoom), dtype=np.float32)
+    z_frames_t5 = np.zeros((num_save_frames, nx_zoom, nz_zoom), dtype=np.float32)
+    z_frames_div = np.zeros((num_save_frames, nx_zoom, nz_zoom), dtype=np.float32)
+    z_frames_curl = np.zeros((num_save_frames, nx_zoom, nz_zoom), dtype=np.float32)
 
     start_time = time.time()
     print(f"Running Simulation... ({t_max_steps} steps)")
@@ -849,6 +863,8 @@ def main():
         # フレーム保存
         if t_i % save_interval == 0:
             frame_idx = t_i // save_interval
+            if frame_idx >= num_save_frames:
+                break
 
             # --- 傷表面の圧力抽出 (P = -(T1+T3)/2) ---
             P_cp = -(T1 + T3) / 2.0
@@ -857,16 +873,16 @@ def main():
 
             # --- 応力フィールドの抽出 ---
             f1 = cp.asnumpy(T1[:nx, :])
-            g_frames_t1.append(f1[::global_downsample, ::global_downsample].astype(np.float32))
-            z_frames_t1.append(f1[x_start:x_end, z_start:z_end].astype(np.float32))
+            g_frames_t1[frame_idx] = f1[::global_downsample, ::global_downsample].astype(np.float32)
+            z_frames_t1[frame_idx] = f1[x_start:x_end, z_start:z_end].astype(np.float32)
 
             f3 = cp.asnumpy(T3[:nx, :])
-            g_frames_t3.append(f3[::global_downsample, ::global_downsample].astype(np.float32))
-            z_frames_t3.append(f3[x_start:x_end, z_start:z_end].astype(np.float32))
+            g_frames_t3[frame_idx] = f3[::global_downsample, ::global_downsample].astype(np.float32)
+            z_frames_t3[frame_idx] = f3[x_start:x_end, z_start:z_end].astype(np.float32)
 
             f5 = cp.asnumpy(T5[:nx, :nz])
-            g_frames_t5.append(f5[::global_downsample, ::global_downsample].astype(np.float32))
-            z_frames_t5.append(f5[x_start:x_end, z_start:z_end].astype(np.float32))
+            g_frames_t5[frame_idx] = f5[::global_downsample, ::global_downsample].astype(np.float32)
+            z_frames_t5[frame_idx] = f5[x_start:x_end, z_start:z_end].astype(np.float32)
 
             # --- 波動分離 (P波: Divergence, S波: Curl) ---
             div_cp = cp.zeros((nx, nz), dtype=cp.float32)
@@ -878,25 +894,25 @@ def main():
             div_np = cp.asnumpy(div_cp)
             curl_np = cp.asnumpy(curl_cp[:, :nz])
             
-            g_frames_div.append(div_np[::global_downsample, ::global_downsample].astype(np.float32))
-            z_frames_div.append(div_np[x_start:x_end, z_start:z_end].astype(np.float32))
+            g_frames_div[frame_idx] = div_np[::global_downsample, ::global_downsample].astype(np.float32)
+            z_frames_div[frame_idx] = div_np[x_start:x_end, z_start:z_end].astype(np.float32)
 
-            g_frames_curl.append(curl_np[::global_downsample, ::global_downsample].astype(np.float32))
-            z_frames_curl.append(curl_np[x_start:x_end, z_start:z_end].astype(np.float32))
+            g_frames_curl[frame_idx] = curl_np[::global_downsample, ::global_downsample].astype(np.float32)
+            z_frames_curl[frame_idx] = curl_np[x_start:x_end, z_start:z_end].astype(np.float32)
 
         if t_i % 1000 == 0:
             cp.cuda.Device().synchronize()
 
     print(f"Done. {time.time() - start_time:.1f} s")
 
-    if not g_frames_t1:
+    if num_save_frames == 0:
         print("フレームがキャプチャされませんでした。")
         return
 
-    g1 = np.array(g_frames_t1); g3 = np.array(g_frames_t3); g5 = np.array(g_frames_t5)
-    z1 = np.array(z_frames_t1); z3 = np.array(z_frames_t3); z5 = np.array(z_frames_t5)
-    g_div_arr = np.array(g_frames_div); g_curl_arr = np.array(g_frames_curl)
-    z_div_arr = np.array(z_frames_div); z_curl_arr = np.array(z_frames_curl)
+    g1 = g_frames_t1; g3 = g_frames_t3; g5 = g_frames_t5
+    z1 = z_frames_t1; z3 = z_frames_t3; z5 = z_frames_t5
+    g_div_arr = g_frames_div; g_curl_arr = g_frames_curl
+    z_div_arr = z_frames_div; z_curl_arr = z_frames_curl
 
     roi_rect_mm = (
         zoom_z_min, zoom_x_min,

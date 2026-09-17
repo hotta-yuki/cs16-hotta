@@ -22,8 +22,10 @@ pic/
 進捗報告/**/*.pdf
 進捗報告/**/*.synctex.gz
 
-# VS Code specific
-.vscode/
+# VS Code / Antigravity specific
+# NOTE: '.vscode/*' であって '.vscode/' ではない。ディレクトリごと除外すると
+#       '!' による再包含が git の仕様上効かないため。
+.vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 
@@ -39,3 +41,14 @@ output/
 *.mp4
 *.gif
 node_modules/
+
+# Notion exports / reference manuscripts (large zips; 2026-09-17)
+text/
+pastexam/
+
+# LaTeX build artifacts
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+*.aux
+*.out

@@ -1,0 +1,92 @@
+\documentclass{jarticle}
+\usepackage[dvipdfmx]{graphicx}
+\topmargin       -10.0mm
+\oddsidemargin   -0.4mm
+\evensidemargin  -0.4mm
+\headheight       0.0mm
+\headsep          0.0mm
+\footskip        10.0mm
+%
+\textheight     260.0mm
+\textwidth      170.0mm
+%
+\setlength{\parindent}{1zw}
+%
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\makeatletter
+\def \fgcaption{\def \@captype{figure} \caption}
+\def \tbcaption{\def \@captype{table} \caption}
+\makeatother
+\def \figurename{Fig.}
+\def \tablename{Table}
+%
+\def\topfraction{.99}
+\def\bottomfraction{.99}
+\def\textfraction{.01}
+\def\floatpagefraction{.99}
+%
+\pagestyle{empty}
+%
+\begin{document}
+%
+\begin{center}
+ \begin{tabular}{|c|c|c|} \hline
+  \parbox{50mm}{\vspace{1mm} \centering{\Large\bf 2026/07/16}} & 
+  \parbox{55mm}{\vspace{1mm} \centering{\Large\bf B4　堀田裕樹}} & 
+  \parbox{50mm}{\vspace{1mm} \centering{\Large\bf No.~12}}
+  \\ [2mm] \hline
+%
+  \multicolumn{3}{|c|}{%
+   \parbox{155mm}{\centering\Large\bf
+    \vspace{1mm}
+    応力成分$T_1, T_3, T_5$と各波動の物理的関係性に関する考察
+   }
+  }
+  \\ [2mm] \hline\hline
+%
+  \multicolumn{3}{|c|}{%
+   \parbox{155mm}{\large\vspace{1mm}
+%
+    {\Large\bf 今週の進捗要点}
+%
+    \begin{itemize}
+     \item FDTD法における応力成分 $T_1$（$x$方向垂直応力），$T_3$（$z$方向垂直応力），$T_5$（せん断応力）の波動伝搬プロセス上の物理的役割の同定
+     \item 自由境界でのモード変換の考察
+     \item 弾性バルク波（L波，SV波，SH波）およびレイリー表面波の物理的特性と，2次元解析モデル上の波動結合に関する理論的検討
+    \end{itemize}
+%
+   }
+  }
+  \\ [2mm] \hline
+ \end{tabular}
+\end{center}
+
+\par
+本週は，周期的粗面における超音波反射・散乱シミュレーションにおいて，基礎方程式に含まれる各応力成分 $T_1$, $T_3$, $T_5$ が，入射バルク波，表面波（レイリー波），
+およびテイル波とどのように物理的に関係しているかを考察した．
+
+\section{各応力成分の物理的意味と波動の対応}
+FDTDモデルにおいて，境界方向を $z$ 軸，深さ方向を $x$ 軸と定義した際，各応力成分は以下のように波動の伝搬特性に対応づけられる．
+\begin{description}
+  \item[1. $T_1$ ($\sigma_{xx}$): 縦波バルク波の主導因子] \par
+  $x$ 方向の垂直応力であり，平滑面から入射する縦波パルス（バルク波）の伝搬，および正反射されるメイン反射波の音場において支配的である．
+  \item[2. $T_3$ ($\sigma_{zz}$): 表面波（レイリー波）の進行方向応力] \par
+  $z$ 方向の垂直応力であり，粗面境界に沿って $z$ 方向に伝搬する表面波（レイリー波）の縦方向（進行方向）の引張・圧縮の応力に対応する．レイリー波が励起されると，
+  表面近傍でこの $T_3$ 成分が局所的に増幅される．
+  \item[3. $T_5$ ($\sigma_{xz}$): モード変換を誘起するせん断応力] \par
+  $x$-$z$ 面のせん断応力である．自由境界であるため，きずの角部などの不連続点において $T_5$ の大きな空間勾配が発生する．
+  これがバルク波と表面波のモード変換を媒介する役割を担う．
+\end{description}
+
+\section{L波・SV波と2次元FDTDモデルにおける波動結合}
+弾性体中の主要なバルク波であるL波（縦波），SV波（横波）と，本2次元FDTDシミュレーションモデルにおける波動結合の力学的特徴は以下のように整理される．
+\begin{description}
+  \item[1. L波の伝搬] \par
+  変位方向が波の進行方向と平行な縦波バルク波である．垂直探触子から入射する初期パルスはL波であり，これは主に深さ方向（$x$方向）の垂直応力 $T_1$ として伝搬する．正反射波の主成分もこのL波である．
+  \item[2. SV波とモード変換] \par
+  変位方向が伝搬方向と直交し，かつ2次元解析面（$x$-$z$面）内にある横波バルク波である．L波が Wall 面や不連続点に衝突した際，せん断応力 $T_5$ が立ち上がることで，L波からSV波へのモード変換が同時に発生する．
+\end{description}
+
+\end{document}

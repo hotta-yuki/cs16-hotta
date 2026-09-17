@@ -116,7 +116,7 @@ f_width = 0.25e-3  # m
 # 傷の間隔 m
 f_pitch = 2.00e-3
 # 傷の深さ m
-f_depth = 0.20e-3  # m
+f_depth = 0 # 0.20e-3  # m
 
 print(f"f_pitch = {f_pitch}")
 print(f"f_depth = {f_depth}")

@@ -1,0 +1,38 @@
+{
+  // VS Code / Antigravity 共通のワークスペース設定。
+  // Python は必ず Anaconda の venv 環境を使う (base 環境だと CuPy が動かない)。
+  "python.defaultInterpreterPath": "C:\\Users\\cs16\\anaconda3\\envs\\venv\\python.exe",
+  "python.terminal.activateEnvironment": true,
+
+  // LaTeX ソースは UTF-8 (BOM なし)。実験のスコープ CSV は SHIFT-JIS なので
+  // 自動判別を有効にしておく。
+  "files.encoding": "utf8",
+  "files.autoGuessEncoding": true,
+  "[latex]": {
+    "files.encoding": "utf8"
+  },
+
+  // 生成物・巨大ディレクトリを検索とファイル監視から除外する
+  // (vscode/project1 だけで 16GB あるため、外さないと検索が実用にならない)
+  "files.watcherExclude": {
+    "**/tmp_output/**": true,
+    "**/tmp/**": true,
+    "**/data_im/**": true,
+    "**/output/**": true,
+    "**/pic/**": true,
+    "**/text/**": true,
+    "**/資料/**": true
+  },
+  "search.exclude": {
+    "**/tmp_output": true,
+    "**/tmp": true,
+    "**/data_im": true,
+    "**/output": true,
+    "**/pic": true,
+    "**/text": true,
+    "**/資料": true,
+    "**/*.npz": true,
+    "**/*.mp4": true,
+    "**/*.gif": true
+  }
+}

@@ -1,0 +1,84 @@
+{
+  // VS Code / Antigravity 共通のタスク定義。
+  // Gemini.md 2章が参照している「Update LLM History」の実体はこのファイル。
+  // 役割分担は AGENTS.md を参照（Antigravity=文章 / Claude Code=コード）。
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Update LLM History",
+      "detail": "AI 利用監査ログを再生成する (進捗報告/gemini_log/YYYYMMDD.md)",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/update_history.ps1"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+    },
+    {
+      "label": "Build Report (latest)",
+      "detail": "進捗報告/tex/ の最新 .tex を ptex2pdf でビルドする",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/build_report.ps1"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+    },
+    {
+      "label": "Build Report (choose file)",
+      "detail": "ファイル名を指定してレポートをビルドする (拡張子なし)",
+      "type": "shell",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/build_report.ps1",
+        "${input:reportName}"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+    },
+    {
+      "label": "Run Simulation Sweep",
+      "detail": "simdata.csv の全パラメータ組み合わせで FDTD を実行する (19条件で約50分)",
+      "type": "shell",
+      "command": "C:\\Users\\cs16\\anaconda3\\envs\\venv\\python.exe",
+      "args": ["vscode/simulation/loop_UT_sim.py"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "Check GPU (CuPy)",
+      "detail": "CuPy と CUDA が正常に動くかを確認する",
+      "type": "shell",
+      "command": "C:\\Users\\cs16\\anaconda3\\envs\\venv\\python.exe",
+      "args": [
+        "-c",
+        "import cupy as cp; d=cp.cuda.Device(0); print('GPU :', cp.cuda.runtime.getDeviceProperties(0)['name'].decode()); print('cc  :', d.compute_capability); print('mem :', [x//2**20 for x in d.mem_info], 'MiB (free/total)'); print('calc:', (cp.arange(10)*2).sum()); print('fft :', abs(cp.fft.fft(cp.arange(8, dtype=cp.float64)))[0]); print('OK')"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared", "clear": true }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "reportName",
+      "type": "promptString",
+      "description": "ビルドするレポート名 (拡張子なし)",
+      "default": "20260716_report"
+    }
+  ]
+}

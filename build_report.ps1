@@ -65,7 +65,8 @@ if (-not $ptex2pdf) {
     $ptex2pdf = "ptex2pdf"
 }
 
-# Run ptex2pdf (for Japanese jarticle)
+# Run ptex2pdf twice to resolve references (for Japanese jarticle)
+& $ptex2pdf -l -ot "-kanji=utf8 -synctex=1" "$fileName.tex"
 & $ptex2pdf -l -ot "-kanji=utf8 -synctex=1" "$fileName.tex"
 
 if ($LASTEXITCODE -eq 0) {
