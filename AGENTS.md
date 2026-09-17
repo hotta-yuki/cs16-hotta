@@ -42,7 +42,7 @@
 | `text/`, `資料/` | Antigravity | 原稿、プレゼン構成案、輪読資料 |
 | `vscode/`, `scripts/` | Claude Code | シミュレーション・解析コード、ツール類 |
 | `*.ps1` | Claude Code | ビルド/ログ更新スクリプト |
-| `tmp_output/`, `data/`, `pic/` | Claude Code が生成 | 図とシミュレーション出力。Antigravity は参照のみ(図のパスをレポートに書くため) |
+| `tmp_output/`, `data/`, `pic/` | Claude Code が生成 | 図とシミュレーション出力。Antigravity は参照のみ(図のパスをレポートに書くため)。git 管理は別リポジトリ `lab-data`(11章) |
 | `HANDOFF.md` | 両方(末尾に追記) | 引き継ぎメモ |
 | `AGENTS.md` | 両方(要相談) | このファイル |
 
@@ -266,6 +266,7 @@ Claude Code のコミットは末尾に `Co-Authored-By: Claude ...` を付け�
   `requirements.txt`、`進捗報告/gemini_log/`（監査ログ）、`scripts/history.db`
   （生成物だが監査ログの土台なので例外的に追跡）
 - **追跡しない**: 再生成できる出力（`tmp_output/`・`pic/`・`output/`・`data/`）、
+  実験データ `vscode/simulation/data/`（**別リポジトリ `lab-data` で管理する。11章**）、
   PDF・PPTX などの大きいバイナリ、`*.npz`・`*.mp4`・`*.gif`
 - 除外を増やすときは `.gitignore` に**理由をコメントで添えて**書く（後から外してよいか判断できる）
 - 50 MB を超えるファイルは入れない（GitHub が警告を出すライン）
@@ -295,3 +296,64 @@ remote は `origin`（`https://github.com/hotta-yuki/-laboratory-cs16.git`）。
 | 変更を捨てずに一旦避ける | `git stash` → `git stash pop` |
 
 **消えて困るものが消えそうな操作は、実行せずに聞く。**
+
+---
+
+## 11. データリポジトリ (lab-data)
+
+**データはコードとは別のリポジトリで管理する。** 対象は実験のスコープ波形、シミュレーション
+出力の CSV、そこから作った図。
+
+分ける理由は、データが**再現可能だが再現に時間がかかる**こと（1条件あたり約2.5分の GPU 計算）。
+ichikawa san が同じものを回し直すのも負担なので、計算結果そのものを履歴に残す。一方でデータは
+コードより桁違いに大きく、本体リポジトリに混ぜると clone が重くなるため分離している。
+
+### 置き場所
+
+```
+<任意のディレクトリ>/
+├── lab/        ← 本体リポジトリ（コード。Google Drive 同期の対象）
+└── lab-data/   ← データリポジトリ（Drive の外に置く）
+```
+
+**lab-data を Google Drive のフォルダの中に置かないこと。** 同期のタイミングで `.git` が壊れる
+（実際、Drive 内では `git add` が `Permission denied` で失敗する事例が出ている）。
+
+データの実体は2か所にある。役割が違うのでどちらも消さない。
+
+| 場所 | 役割 |
+|---|---|
+| `lab/vscode/simulation/data/`・`lab/tmp_output/` | スクリプトが読み書きする作業コピー。Drive 同期の対象なのでバックアップも兼ねる |
+| `lab-data/` | git で履歴を残す場所。GitHub 経由で Mac・ichikawa san と共有する |
+
+| lab-data 側 | 作業コピー側 | 中身 |
+|---|---|---|
+| `experiment/` | `vscode/simulation/data/` | 実験のスコープ波形・索引・平均波形 |
+| `simulation/sim/`・`simulation/sim_csv/` | `tmp_output/sim/`・`tmp_output/sim_csv/` | FDTD 出力の CSV |
+| `plots/…` | `tmp_output/…` | CSV から作った図 |
+
+### 同期
+
+```bash
+# 計算した後: 作業コピー -> lab-data（コミットまで。push はしない）
+python scripts/sync_data_repo.py --to repo --commit "feat: pitch 2.0mm の掃引結果を追加"
+
+# 相手の機械の結果を取り込む: lab-data -> 作業コピー
+python scripts/sync_data_repo.py --to work
+
+# 何が動くか先に見る
+python scripts/sync_data_repo.py --to repo --dry-run
+```
+
+既定では**上書きと追加だけ**を行い、送り元に無いファイルは消さずに報告する（消すなら `--delete`）。
+
+### スクリプトから参照するとき
+
+パスを直接書かず **`vscode/simulation/data_paths.py`** を使う。`experiment_dir()` /
+`sim_csv_dir()` / `sim_dir()` が、作業コピー → 隣の `lab-data` の順に実在する方を返す。
+別の場所に置いた場合は環境変数 `LAB_DATA_DIR` で指定する。
+
+### lab-data にも入れないもの
+
+動画（`*.mp4`・`*.gif`）とアニメーションの NPZ。GitHub の上限（1ファイル100MB）を超えるものが
+あり、再生成もできるため。必要なものだけ Google Drive か GitHub Releases で個別に渡す。

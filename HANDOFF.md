@@ -254,3 +254,38 @@ sim_pitch1250_depth200_width150.csv  ->  kukei_cupy_pitch125_width15_depth20.csv
   未着手は `data/20260709/` のアニメーションのみ（`kukei_ani.py` の命名移行が先）
 - その過程で **`plot_simdata.py` / `plot_simdata_compare.py` の glob が壊れていたのを修正**。
   `'sim_*.csv'` を探していたため、CSV 本体を改名した時点でプロットが1枚も生成されない状態だった
+
+## 2026-09-17 — Claude Code（追記2）
+
+### やったこと
+
+**データを別リポジトリ `lab-data` に分離した。** 方針は「git でデータの履歴も残す。ただし
+再現に時間がかかるデータは本体とは別リポジトリで共有し、Google Drive にも残す」。
+
+- `C:\Users\cs16\lab-data` を作成（**Drive の外**。中に `.git` を置くと同期ロックで壊れるため）。
+  1254 ファイル・生 329 MB、`.git` は 54 MB
+  - `experiment/` ← `vscode/simulation/data/`（1035件）
+  - `simulation/sim`・`sim_csv` ← `tmp_output/`（143件）
+  - `plots/` ← `tmp_output/` の図（76件）
+- 本体リポジトリからは `vscode/simulation/data/` を**追跡対象外**にした（`git rm --cached`）。
+  ファイルはディスクに残っているので、Drive 側のバックアップは今までどおり
+- `vscode/simulation/data_paths.py` を新設。パスを直書きせず、作業コピー → 隣の `lab-data` の
+  順に実在する方を返す（環境変数 `LAB_DATA_DIR` で上書き可）。
+  `calculate_avg_waveforms.py`・`plot.py`・`plot_rough_waveform.py` をこれに合わせた
+- `scripts/sync_data_repo.py` を新設。`--to repo` / `--to work` で 双方向に同期、
+  `--dry-run` で確認、`--commit` で lab-data 側にコミット（push はしない）
+- ルールは `AGENTS.md` 11章に記載。`CLAUDE.md` からも参照
+
+### 相手への依頼
+
+- レポートに図を貼るとき、図の実体は今後 `lab-data/plots/` にも入ります。ただし
+  `\includegraphics` のパスは**これまでどおり `tmp_output/...`（作業コピー）**を指してください。
+  Drive 同期に乗っているのはそちらです
+- Mac 側で作業する場合は `lab` と `lab-data` を**並べて clone** してください（11章）
+
+### 未解決・注意
+
+- **GitHub 側のデータリポジトリは未作成**。ユーザーが private リポジトリを作って push する必要が
+  あります（`git remote add origin <URL>` → `git push -u origin main`）
+- lab-data のコミットの author は本体と同じ `hotta@example.com`（プレースホルダ）のまま
+- 動画・NPZ は lab-data にも入れていない（GitHub の 100 MB 制限）
