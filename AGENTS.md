@@ -126,7 +126,82 @@ python vscode/simulation/loop_UT_sim.py
 
 ---
 
-## 7. 共通の注意点
+## 7. 命名規則（ichikawa sanリポジトリと共通）
+
+共同研究者（ichikawa san）のリポジトリ **[erin621-arch/Roughness](https://github.com/erin621-arch/Roughness)**
+と命名を揃える。**2026-09-17 に既存のコードと出力ファイル（143件）も移行済み**。
+実装は `vscode/simulation/naming.py`（`mm_code()` / `sim_csv_name()` / `SIM_SHAPE`）。
+自前で文字列を組み立てず、この関数を使う。
+
+### パラメータコード
+
+値[mm] × 100。整数にならない値は**小数のまま**にする（0.125 → `12.5`）。
+
+| 実値 | コード |
+|---|---|
+| pitch 1.25 mm | `125` |
+| depth 0.20 mm | `20` |
+| width 1.25 mm | `125` |
+| depth 0.125 mm (Ushape 最小) | `12.5` |
+
+**`int(round(value * 100))` を使わない。** `round(12.5)` が 12 になり、depth 0.12 と区別できなくなる。
+ichikawa san側の実装は `project4/Sourse/ani_utils.py` の `mm_code()`:
+
+```python
+def mm_code(value_mm):
+    code = round(value_mm * 100, 6)
+    return int(code) if float(code).is_integer() else code
+```
+
+このリポジトリのパラメータは **[m] 単位**（`f_pitch = 2.00e-3`）なので、mm に直してから渡す
+（`mm_code(f_pitch * 1000)`）。
+
+### 傷形状
+
+**Kusabi**（楔型）/ **Ushape**（U字型）/ **Kukei**（矩形）/ **Sankaku**（三角形）/ **Smooth**（平滑面）
+
+- ディレクトリは `Type_<Shape>`（先頭大文字）、ファイル名・スクリプト名の中は小文字
+- Ushape は幅 w=0.25 mm 固定、最小 depth は R=w/2=0.125 mm
+
+### ファイル名パターン
+
+| 種類 | パターン | 例 |
+|---|---|---|
+| シミュレーション CSV（ichikawa san 側） | `<shape>_cupy_pitch<p>_depth<d>.csv` | `ushape_cupy_pitch100_depth12.5.csv` |
+| シミュレーション CSV（こちら） | `<shape>_cupy_pitch<p>_width<w>_depth<d>.csv` | `kukei_cupy_pitch125_width15_depth12.5.csv` |
+| 3D シミュレーション CSV | `<shape>_cupy3d_pitch<p>_depth<d>.csv` | `kukei_cupy3d_pitch200_depth20.csv` |
+| 実験データのフォルダ | `<pitch>_<depth>` | `100_12.5` |
+| アニメーション NPZ | `<prefix>_psize<ps>_pitch<p>_width<w>_depth<d>_data.npz` | 順序は psize→pitch→width→depth |
+| 日付ログ | `YYYY_MM_DD.md` | `2026_09_17.md` |
+| 過去版の保管 | `Type_<Shape>/<YYYYMM>_<shape>/` | `Type_Kukei/202605_kukei/` |
+
+### 軸定義
+
+**x軸 = 縦方向**（下方向が増加。音源・探触子が x=0、溝が x=nx 側）、**z軸 = 横方向**。
+**z=0 は最初の溝の開始端**。`y` は使わない。
+
+### 測定セットアップ
+
+板厚方向のパルスエコー構成。探触子は**平滑な上面**に密着し、傷は**反対側の底面**にある。
+溝を探触子側の面に描かない。Smooth ケースは傷があるはずの裏面が平ら。
+
+---
+
+## 8. ichikawa sanのリポジトリの扱い
+
+対象: **[erin621-arch/Roughness](https://github.com/erin621-arch/Roughness)**（相互にコラボレーター登録済み）
+
+- **ichikawa sanのファイルは直接変更しない。** 相手のリポジトリへ commit・push しない。
+- 変更が必要なときは**ダウンロードして、自分の環境でのみ変更する**。
+- 取得は読み取り目的に限る。clone 先は**このリポジトリの外**（作業用の一時フォルダ）に置き、
+  `lab/` の中に持ち込まない。
+- 相手側に反映してほしい変更は、自分で編集せず**ichikawa sanに伝える**。
+- 逆に、こちらのリポジトリをichikawa sanが参照することもある。上の命名規則から外れると読み違いの原因に
+  なるため、規則を変えたくなったら独断で変えずにと相談する。
+
+---
+
+## 9. 共通の注意点
 
 - **文字コード**: LaTeX ソースは UTF-8 (BOM なし)。実験のスコープ CSV は SHIFT-JIS。
 - **`vscode/simulation/` が FDTD 物理の正**。`vscode/project1/`・`project2/`・`project3_*/` は

@@ -5,6 +5,8 @@ import glob
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 
+from naming import SIM_SHAPE, mm_code, sim_csv_name
+
 # 設定
 base_dir = r'vscode/simulation/data'
 data_dir = os.path.join(base_dir, 'ex_data')
@@ -32,8 +34,9 @@ cl = np.sqrt(E / rho * (1 - V) / (1 + V) / (1 - 2 * V))
 dx = 1.0e-5
 SIM_DT = dx / cl / np.sqrt(6)
 
-def load_simulation_data(pitch_um, depth_um, width_um):
-    sim_filename = f"sim_pitch{pitch_um}_depth{depth_um}_width{width_um}.csv"
+def load_simulation_data(pitch_mm, depth_mm, width_mm):
+    # 命名規則は AGENTS.md 7章（先輩リポジトリと共通）。値は [m] で渡す
+    sim_filename = sim_csv_name(SIM_SHAPE, pitch_mm / 1000, width_mm / 1000, depth_mm / 1000)
     sim_path = os.path.join(sim_dir, sim_filename)
     if not os.path.exists(sim_path):
         return None, None
@@ -67,14 +70,16 @@ print(f"Processing {len(df_index)} groups...")
 for idx, row in df_index.iterrows():
     start = int(row['index_start'])
     end = int(row['index_end'])
-    pitch_um = int(row['pitch (mm)'] * 1000)
-    depth_um = int(row['dipth (mm)'] * 1000)
-    width_um = int(row['width (mm)'] * 1000)
-    
-    group_name = f"p{pitch_um}_d{depth_um}_w{width_um}_{start}_{end}"
-    
+    pitch_mm = float(row['pitch (mm)'])
+    depth_mm = float(row['dipth (mm)'])
+    width_mm = float(row['width (mm)'])
+
+    # グループ名も値[mm]×100 のコードで揃える (AGENTS.md 7章)
+    group_name = (f"p{mm_code(pitch_mm)}_w{mm_code(width_mm)}_d{mm_code(depth_mm)}"
+                  f"_{start}_{end}")
+
     # シミュレーションデータの存在確認 (一致する場合のみ処理するため)
-    t_sim_raw, v_sim_raw = load_simulation_data(pitch_um, depth_um, width_um)
+    t_sim_raw, v_sim_raw = load_simulation_data(pitch_mm, depth_mm, width_mm)
     if t_sim_raw is None:
         # print(f"Skipping {group_name}: No matching simulation data.")
         continue

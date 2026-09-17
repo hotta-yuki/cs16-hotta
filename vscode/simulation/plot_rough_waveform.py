@@ -6,6 +6,7 @@ import sys
 # sourse_new_2 などの共通設定をインポート
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import sourse_new_2 as sn2
+from naming import SIM_SHAPE, sim_csv_name
 
 def main():
     # 日本語フォントの設定（japanize_matplotlibがあれば使用）
@@ -16,10 +17,12 @@ def main():
 
     # 非平滑面（きずあり）の代表的なシミュレーションCSVパス
     # 候補ディレクトリを検索
+    # 命名規則は AGENTS.md 7章。pitch 2.00mm / width 0.40mm / depth 0.20mm
+    target_csv = sim_csv_name(SIM_SHAPE, 2.00e-3, 0.40e-3, 0.20e-3)
     possible_paths = [
-        os.path.join("tmp_output", "sim_csv", "sim_pitch2000_depth200_width400.csv"),
-        os.path.join("tmp_output", "sim", "sim_pitch2000_depth200_width400.csv"),
-        os.path.join("vscode", "simulation", "tmp", "sim_pitch2000_depth200_width400.csv")
+        os.path.join("tmp_output", "sim_csv", target_csv),
+        os.path.join("tmp_output", "sim", target_csv),
+        os.path.join("vscode", "simulation", "tmp", target_csv)
     ]
     
     csv_path = None

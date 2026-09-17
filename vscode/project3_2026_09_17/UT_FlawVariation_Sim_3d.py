@@ -6,6 +6,8 @@ import numpy as np
 import cupy as cp
 import os
 
+from naming import SIM_SHAPE, sim3d_csv_name
+
 # =============================================================================
 # シミュレーションパラメータ
 # =============================================================================
@@ -287,7 +289,8 @@ def run_simulation_3d(f_width, f_pitch, f_depth, f_length=None):
     # 結果の保存
     output_dir = "tmp_output/sim_3d"
     os.makedirs(output_dir, exist_ok=True)
-    filename = f"{output_dir}/sim3d_pitch{int(f_pitch*1e6)}_depth{int(f_depth*1e6)}.csv"
+    # 命名規則は AGENTS.md 7章
+    filename = os.path.join(output_dir, sim3d_csv_name(SIM_SHAPE, f_pitch, f_depth))
     np.savetxt(filename, wave_output, delimiter=',')
     print(f"Saved: {filename}")
 

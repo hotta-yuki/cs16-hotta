@@ -8,16 +8,25 @@ import sys
 # sourse_new_2のインポート（パスの解決）
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import sourse_new_2 as sn2
+from naming import SIM_SHAPE
 
 def extract_params(filename):
     """
-    ファイル名からpitch, depth, widthを抽出する。
-    例: sim_pitch1250_depth200_width150.csv -> (1250, 200, 150)
+    ファイル名から pitch, width, depth のコードを抽出する。
+
+    コードは値[mm] × 100 (AGENTS.md 7章)。小数コードがあるため int 決め打ちにしない。
+    例: kukei_cupy_pitch125_width15_depth12.5.csv -> (125, 15, 12.5)
     """
-    pitch = int(re.search(r'pitch(\d+)', filename).group(1))
-    depth = int(re.search(r'depth(\d+)', filename).group(1))
-    width = int(re.search(r'width(\d+)', filename).group(1))
-    return pitch, depth, width
+    def _code(key):
+        # depth12.5 のような小数コードを取りこぼさないこと。
+        # r'depth(\d+)' だと "12" だけ拾って depth 0.12 と区別できなくなる。
+        m = re.search(key + r'(\d+(?:\.\d+)?)', filename)
+        if m is None:
+            raise ValueError(f"{key} がファイル名にない: {filename}")
+        v = float(m.group(1))
+        return int(v) if v.is_integer() else v
+
+    return _code('pitch'), _code('width'), _code('depth')
 
 def calculate_features(waveform, dt):
     """
@@ -66,7 +75,8 @@ def main():
     input_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tmp')
     output_file = 'simulation_features.csv'
     
-    csv_files = glob.glob(os.path.join(input_dir, 'sim_*.csv'))
+    # 命名規則は AGENTS.md 7章。<shape>_cupy_pitch..._width..._depth....csv
+    csv_files = glob.glob(os.path.join(input_dir, f'{SIM_SHAPE.lower()}_cupy_*.csv'))
     if not csv_files:
         print(f"No files found in {input_dir}")
         return
@@ -83,7 +93,7 @@ def main():
         print(f"Processing {filename}...")
         
         try:
-            pitch, depth, width = extract_params(filename)
+            pitch, width, depth = extract_params(filename)
             df = pd.read_csv(csv_path, header=None)
             waveform = df.iloc[:, 0].values
             

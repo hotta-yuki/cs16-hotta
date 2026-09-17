@@ -2,6 +2,8 @@ import UT_FlawVariation_Sim
 import itertools
 import os
 
+from naming import sim_csv_name
+
 def load_simdata(file_path):
     """
     simdata.csv からパラメータを読み込む。
@@ -60,10 +62,11 @@ def main():
     
     for i, (w, p, d) in enumerate(combinations):
         # ファイル名の生成と存在確認
-        filename = f"sim_pitch{int(p * 1000000)}_depth{int(d * 1000000)}_width{int(w * 1000000)}.csv"
+        # 命名規則は AGENTS.md 7章（先輩リポジトリと共通）
+        filename = sim_csv_name(UT_FlawVariation_Sim.SHAPE, p, w, d)
         check_paths = [
-            os.path.join("tmp_output\\sim", filename),
-            os.path.join("data_im     ", "simdata_out", filename)
+            os.path.join("tmp_output", "sim", filename),
+            os.path.join("data_im", "simdata_out", filename)
         ]
         
         exists = False

@@ -8,6 +8,7 @@ import sys
 # sourse_new_2のインポート
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import sourse_new_2 as sn2
+from naming import SIM_SHAPE
 
 input_dir = 'C:\\Users\\cs16\\lab\\vscode\\simulation\\tmp'
 output_dir = 'tmp_output/comparison_plots'
@@ -35,8 +36,13 @@ print(f"Found {len(csv_files)} files. Starting comparison plotting...")
 
 for csv_file in csv_files:
     try:
-        # ファイル名からラベルを作成 (例: sim_pitch1250_depth100 -> p1250_d100)
-        label = os.path.basename(csv_file).replace('sim_', '').replace('.csv', '')
+        # ファイル名からラベルを作成
+        # 例: kukei_cupy_pitch125_width15_depth20.csv -> pitch125_width15_depth20
+        label = os.path.basename(csv_file).replace('.csv', '')
+        for prefix in (f'{SIM_SHAPE.lower()}_cupy_', 'sim_'):
+            if label.startswith(prefix):
+                label = label[len(prefix):]
+                break
         
         df = pd.read_csv(csv_file, header=None)
         waveform = df.iloc[:, 0].values

@@ -95,3 +95,104 @@
   ユーザーが手動で実行する必要がある(下記)
 - **git のリモートが未設定**でバックアップが Google Drive のみ。`.git` の掃除後に
   GitHub private リポジトリの設定を推奨
+
+---
+
+## 2026-09-17 (3) — Claude Code
+
+### やったこと
+
+ichikawa san（[erin621-arch/Roughness](https://github.com/erin621-arch/Roughness)）と相互にコラボレーター
+登録したため、命名規則をichikawa san側に合わせて `AGENTS.md` に7章・8章を追加した。
+ichikawa sanのリポジトリは作業用一時フォルダへ読み取り専用で clone して調査し、**一切変更していない**。
+
+### 既存コードとの不一致（改名はしていない）
+
+規則は「**以降の**新規ファイルから適用」なので既存ファイルはそのままにした。ただし現状は
+**リポジトリ内部ですでに不整合**があるので、触るときは注意が必要。
+
+| 箇所 | 現状 | ichikawa sanの規則 |
+|---|---|---|
+| `UT_FlawVariation_Sim.py:227`, `loop_UT_sim.py:63` | `int(f_pitch * 1000000)` = **µm**。2.00 mm → `2000` | 値[mm]×100。2.00 mm → `200` |
+| `sourse_new_2.py` (docstring・形状テーブル) | 値[mm]×100。Ushape の `12.5` も踏襲 | **一致している** |
+| `UT_FlawVariation_Sim.py:9,12` | `y_length` / `ny` | `z_length` / `nz`（`y` は使わない） |
+| `sourse_new_2.py:34,37` | `z_length` / `nz` | **一致している** |
+| 出力 CSV 名 | `sim_pitch<p>_depth<d>_width<w>.csv` | `<shape>_cupy_pitch<p>_depth<d>.csv` |
+
+つまり**同じリポジトリ内で `sourse_new_2.py` 系（ichikawa san準拠）と `UT_FlawVariation_Sim.py` 系
+（µm・y軸）が別々の規則で動いている**。`tmp_output/sim/` の既存79ファイルは µm 表記。
+
+### 未解決・注意
+
+- 既存ファイルを新規則へ移行するかは未決定。移行するなら、出力 CSV 名・`loop_UT_sim.py` の
+  スキップ判定・`calculate_avg_waveforms.py` の照合を同時に直す必要がある（ファイル名だけ
+  変えると既存データとの対応が切れる）
+- `width` のコードはichikawa sanの規約に定義が無い。こちらで pitch・depth と同じ ×100 とした。
+  ichikawa san側で width を扱い始めるときは擦り合わせが必要
+- ichikawa sanのリポジトリは Windows で `git clone` すると**チェックアウトに失敗する**。
+  ファイル名に `"` を含む資料があるため（`oscilloscope_option/` など）。中身を見るだけなら
+  `git ls-tree` / `git show` で読める
+
+---
+
+## 2026-09-17 (4) — Claude Code
+
+### やったこと
+
+上の「未解決」だった**既存コード・既存ファイルの新命名規則への移行を実施**した。
+
+**新規モジュール**: `vscode/simulation/naming.py`
+`mm_code()` / `m_code()` / `sim_csv_name()` / `SIM_SHAPE = "Kukei"`。形状定数をここに置いたのは、
+CuPy に依存しないプロット系スクリプトからも参照できるようにするため。
+形状は `isfree()` が深さ mn_d・幅 mn_w の矩形溝を彫っていることから Kukei で確定。
+
+**本体 `vscode/simulation/`**
+
+| ファイル | 変更 |
+|---|---|
+| `UT_FlawVariation_Sim.py` | 軸 y→z を146箇所、出力名を `sim_csv_name()` へ |
+| `loop_UT_sim.py` | スキップ判定を新規則へ。`"data_im     "`（末尾スペース）も `"data_im"` に修正 |
+| `calculate_avg_waveforms.py` | ファイル名構築とグループ名を mm×100 コードへ |
+| `extract_features.py` | 正規表現を小数コード対応に、glob を `<shape>_cupy_*.csv` へ |
+| `plot_rough_waveform.py` | ハードコードされた旧ファイル名を `sim_csv_name()` へ |
+| `plot_simdata_compare.py` | ラベル生成の接頭辞剥がしを新旧両対応に |
+
+**フォーク**: `project1/` と `project3_2026_09_17/` の該当ファイルは変更前の本体と
+**改行コード以外は完全同一**（差分0行）だったため、更新版をそのまま反映した。
+両ディレクトリに `naming.py` も配置。`project3_2026_09_17` の solver は実行確認済み。
+
+**既存出力 143 件を改名**: `tmp_output/sim/` 79件、`tmp_output/sim_csv/` 64件。
+事前に変換表を作り名前の衝突が無いことを確認してから実行。旧名の残存は0件。
+
+```
+sim_pitch1250_depth200_width150.csv  ->  kukei_cupy_pitch125_width15_depth20.csv
+```
+
+### 検証
+
+軸の改名で数値が変わっていないことを、同一条件の実行結果で確認した。
+
+```
+旧 sum: -5.10978764602426310e+01
+新 sum: -5.10978764602426310e+01
+完全一致: True   最大差分: 0.0
+```
+
+**`depth125`（0.125 mm）が実在した**。ichikawa san が警告していた小数コードのケースで、
+`kukei_cupy_pitch125_width15_depth12.5.csv` として正しく `12.5` になっている。
+`int(round(0.125*100))` だと 12 に丸まり depth 0.12 と衝突するところだった。
+`extract_features.py` の旧正規表現 `depth(\d+)` も `12` だけを拾う誤りだったので修正済み。
+
+### 未解決・注意
+
+- **`kukei_ani.py` 系は未着手**。単位は既に mm×100 で正しいが、(a) `int(round(...))` を
+  使っており 0.125 mm で 12 に丸まる、(b) NPZ 名の順序が pitch→depth→width で
+  ichikawa san の pitch→width→depth と逆。直すと既存 NPZ 名と対応が切れるため未実施
+- **`UT_FlawVariation_Sim_3d.py` は対応済み**（2026-09-17）。出力は
+  `<shape>_cupy3d_pitch<p>_depth<d>.csv`（例 `kukei_cupy3d_pitch200_depth20.csv`）。
+  `naming.py` の `sim3d_csv_name()` を使う。`tmp_output/sim_3d` はまだ存在せず、
+  改名対象のファイルは無かった。
+  **注意**: `run_simulation_3d()` は `f_width` を受け取るが名前に入れていないため、
+  width を変えて掃引すると同じ名前で上書きされる。掃引を始めるときは width を足すか、
+  3D の命名を ichikawa san と擦り合わせること
+- `vscode/project2/` は旧規則の該当箇所が無く、対象外
