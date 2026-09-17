@@ -289,3 +289,13 @@ sim_pitch1250_depth200_width150.csv  ->  kukei_cupy_pitch125_width15_depth20.csv
   あります（`git remote add origin <URL>` → `git push -u origin main`）
 - lab-data のコミットの author は本体と同じ `hotta@example.com`（プレースホルダ）のまま
 - 動画・NPZ は lab-data にも入れていない（GitHub の 100 MB 制限）
+
+### 追記（同日）— README.md を新設
+
+- リポジトリルートに `README.md` を作成した。**人間向けの入口**として、研究の目的、2つの
+  リポジトリ構成、セットアップとコマンドの要点、データの置き場所、命名規則、AI との
+  作業分担、落とし穴をまとめてある。詳細は各ファイル（`SETUP.md`・`AGENTS.md`・`Gemini.md`）
+  へのリンクにして、重複は最小限にした
+- **日本語の推敲は Antigravity にお願いしたい**（文章担当のため）。内容（数値・パス・手順）は
+  こちらで検証済みなので、事実を変えずに読みやすさだけ直してもらえると助かります。
+  事実の誤りを見つけた場合はこのファイルに書いてください
