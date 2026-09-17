@@ -15,7 +15,9 @@ output_dir = 'tmp_output/comparison_plots'
 os.makedirs(output_dir, exist_ok=True)
 
 # 比較対象のCSVファイルを取得（ソートして順番を固定）
-csv_files = sorted(glob.glob(os.path.join(input_dir, 'sim_*.csv')))
+# 命名規則は AGENTS.md 7章。改名前の旧命名（sim_*.csv）も拾えるようにしておく。
+csv_files = sorted(glob.glob(os.path.join(input_dir, f'{SIM_SHAPE.lower()}_cupy_*.csv'))
+                   + glob.glob(os.path.join(input_dir, 'sim_*.csv')))
 
 if not csv_files:
     print(f"No simulation CSV files found in {input_dir}")

@@ -8,6 +8,7 @@ import sys
 # sourse_new_2のインポート
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import sourse_new_2 as sn2
+from naming import SIM_SHAPE
 
 input_dir = 'vscode\\simulation\\tmp'
 output_dir_waveform = 'tmp_output/plots_simulation_waveform'
@@ -16,7 +17,9 @@ output_dir_fft = 'tmp_output/plots_simulation_fft'
 os.makedirs(output_dir_waveform, exist_ok=True)
 os.makedirs(output_dir_fft, exist_ok=True)
 
-csv_files = glob.glob(os.path.join(input_dir, 'sim_*.csv'))
+# 命名規則は AGENTS.md 7章。改名前の旧命名（sim_*.csv）も拾えるようにしておく。
+csv_files = sorted(glob.glob(os.path.join(input_dir, f'{SIM_SHAPE.lower()}_cupy_*.csv'))
+                   + glob.glob(os.path.join(input_dir, 'sim_*.csv')))
 
 # 初期パルスを避けるための検索開始オフセット
 search_offset = 8000
