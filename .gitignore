@@ -52,3 +52,6 @@ pastexam/
 *.synctex.gz
 *.aux
 *.out
+
+# 個人の作業用スクラッチ（研究パイプラインとは無関係）
+/tmp.py
