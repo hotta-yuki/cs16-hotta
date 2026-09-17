@@ -11,7 +11,7 @@
 2.  **パラメータ組み合わせの生成**:
     *   Python の `itertools.product` を用いて、各パラメータのすべての組み合わせ（直積）を自動的に生成します。
 3.  **重複実行の回避（スキップ機能）**:
-    *   シミュレーションを開始する前に、該当するパラメータ名の出力ファイル（例: `sim_pitch1250000_depth100000_width250000.csv` など）がすでに `tmp_output/sim/` または `data_im/simdata_out/` フォルダに存在するかどうかを確認します。
+    *   シミュレーションを開始する前に、該当するパラメータ名の出力ファイル（例: `sim_pitch1250000_depth100000_width250000.csv` など）がすでに `tmp_output/sim/` または `data/simdata_out/` フォルダに存在するかどうかを確認します。
     *   すでにファイルが存在する場合は、そのシミュレーションをスキップして次の組み合わせに進みます。
 4.  **シミュレーションの実行**:
     *   出力が存在しない組み合わせについて、GPU を用いたシミュレーション本体（`UT_FlawVariation_Sim.run_simulation`）を呼び出し、計算を行います。
@@ -57,7 +57,7 @@ python vscode/simulation/loop_UT_sim.py
 
 ## 6. 出力ファイル
 シミュレーションが完了すると、指定の出力先に以下のCSVファイルが生成されます。
-*   **保存先**: `tmp_output/sim/` または `data_im/simdata_out/`
+*   **保存先**: `tmp_output/sim/` または `data/simdata_out/`
 *   **ファイル名命名ルール**:
     `sim_pitch[ピッチのnm表記]_depth[深さのnm表記]_width[幅のnm表記].csv`
     *   例：ピッチ $1.25$ mm ($1250000$ nm)、深さ $0.10$ mm ($100000$ nm)、幅 $0.15$ mm ($150000$ nm) の場合

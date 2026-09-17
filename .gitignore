@@ -34,7 +34,7 @@ pic/
 
 # Large data files and output directories
 Exam/
-data_im/
+# data_im/ は 2026-09-17 に data/ へリネーム（下の /data/ を参照）
 output/
 *output/
 *.npz
@@ -56,7 +56,8 @@ pastexam/
 # 個人の作業用スクラッチ（研究パイプラインとは無関係）
 /tmp.py
 
-# ルート直下の data/ (2026-09-17 に同期で出現)。動画・図・生データで計 436 MB、
-# うち 1 件は 100.8 MB の GIF で GitHub の上限 (100 MB) を超える。
-# 中身は vscode/simulation/data/ と重複しており再生成もできるため追跡しない。
+# ルート直下の data/ = 旧 data_im/（2026-09-17 にリネーム）。
+# 動画・図・生データで計 436 MB、うち 1 件は 100.8 MB の GIF で
+# GitHub の上限 (100 MB) を超えるため、旧 data_im/ と同じく追跡しない。
+# 注: vscode/simulation/data/ は別物（実験データの正本）で、そちらは追跡している。
 /data/

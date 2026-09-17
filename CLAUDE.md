@@ -120,7 +120,7 @@ conda activate venv
 ```
 
 Run a parameter sweep of the FDTD simulation (reads `vscode/simulation/simdata.csv`, skips
-combinations already present in `tmp_output\sim` / `data_im\simdata_out`):
+combinations already present in `tmp_output\sim` / `data\simdata_out`):
 ```
 python vscode/simulation/loop_UT_sim.py
 ```
@@ -225,12 +225,13 @@ propagate automatically to the project1/project2 copies.
 > 抽出系(`create_animation.py`等)、③pptx修復系(`fix_pptx_math.py`等、特定のプレゼンファイル専用)です。
 
 ### Generated/data directories are gitignored
-`tmp/`, `tmp_output/`, `pic/`, `output/`, `data_im/` and similar are excluded via `.gitignore` (see
+`tmp/`, `tmp_output/`, `pic/`, `output/`, `data/` (renamed from `data_im/` on 2026-09-17, and
+not to be confused with the tracked `vscode/simulation/data/`) and similar are excluded via `.gitignore` (see
 that file for the full list) — they hold regenerable simulation outputs and plots, not source of
 truth. `scripts/history.db` is intentionally tracked despite being a generated SQLite file, since it
 backs the audit log.
 
-> 📝 補足: `tmp/`, `tmp_output/`, `pic/`, `output/`, `data_im/`等は`.gitignore`で除外されている
+> 📝 補足: `tmp/`, `tmp_output/`, `pic/`, `output/`, `data/`(旧`data_im/`)等は`.gitignore`で除外されている
 > 「再生成可能な出力」であり、正のデータではありません。一方`scripts/history.db`は生成物ですが
 > 監査ログの実体を保持するため意図的にgit管理下に置かれています。
 
@@ -252,7 +253,7 @@ thing that can put a broken file back, so work that is not committed is work tha
   in the `deny` list below precisely because they destroy uncommitted work. `push` is the user's call;
   commit, then tell them it is ready to push.
 - `scripts/history.db` and `進捗報告/gemini_log/` stay tracked (audit log); regenerable output
-  (`tmp_output/`, `pic/`, `output/`, `data_im/`) stays ignored. New ignore entries get a comment
+  (`tmp_output/`, `pic/`, `output/`, `data/`) stays ignored. New ignore entries get a comment
   saying why.
 
 > 📝 補足: **作業は必ず git にコミットする**(共通ルールは `AGENTS.md` 10章)。Google Drive 同期は

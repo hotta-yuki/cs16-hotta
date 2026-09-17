@@ -42,7 +42,7 @@
 | `text/`, `資料/` | Antigravity | 原稿、プレゼン構成案、輪読資料 |
 | `vscode/`, `scripts/` | Claude Code | シミュレーション・解析コード、ツール類 |
 | `*.ps1` | Claude Code | ビルド/ログ更新スクリプト |
-| `tmp_output/`, `data_im/`, `pic/` | Claude Code が生成 | 図とシミュレーション出力。Antigravity は参照のみ(図のパスをレポートに書くため) |
+| `tmp_output/`, `data/`, `pic/` | Claude Code が生成 | 図とシミュレーション出力。Antigravity は参照のみ(図のパスをレポートに書くため) |
 | `HANDOFF.md` | 両方(末尾に追記) | 引き継ぎメモ |
 | `AGENTS.md` | 両方(要相談) | このファイル |
 
@@ -208,7 +208,7 @@ def mm_code(value_mm):
   コピーして派生させた実験用フォークで、本体を直しても自動では反映されない。
 - **`sourse_new_2.py` の `doc_path`** (`C:/Users/cs16/Roughness/project4`) は中身が揃っていない。
   これを import するプロット系スクリプトは、使う前にパスの確認が必要。
-- **git**: 運用ルールは10章。`tmp_output/`・`pic/`・`output/`・`data_im/` は gitignore 済み
+- **git**: 運用ルールは10章。`tmp_output/`・`pic/`・`output/`・`data/` は gitignore 済み
   (再生成できるため)。`scripts/history.db` は生成物だが監査ログの土台なので意図的に追跡している。
 - 迷ったとき、相手の担当領域に手を出すより `HANDOFF.md` に書いて渡すほうが安全です。
 
@@ -265,7 +265,7 @@ Claude Code のコミットは末尾に `Co-Authored-By: Claude ...` を付け�
 - **追跡する**: コード、`*.ps1`、`*.tex`、ルールファイル、`environment.yml` /
   `requirements.txt`、`進捗報告/gemini_log/`（監査ログ）、`scripts/history.db`
   （生成物だが監査ログの土台なので例外的に追跡）
-- **追跡しない**: 再生成できる出力（`tmp_output/`・`pic/`・`output/`・`data_im/`）、
+- **追跡しない**: 再生成できる出力（`tmp_output/`・`pic/`・`output/`・`data/`）、
   PDF・PPTX などの大きいバイナリ、`*.npz`・`*.mp4`・`*.gif`
 - 除外を増やすときは `.gitignore` に**理由をコメントで添えて**書く（後から外してよいか判断できる）
 - 50 MB を超えるファイルは入れない（GitHub が警告を出すライン）

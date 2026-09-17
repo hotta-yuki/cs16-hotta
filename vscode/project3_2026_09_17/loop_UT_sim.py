@@ -66,7 +66,7 @@ def main():
         filename = sim_csv_name(UT_FlawVariation_Sim.SHAPE, p, w, d)
         check_paths = [
             os.path.join("tmp_output", "sim", filename),
-            os.path.join("data_im", "simdata_out", filename)
+            os.path.join("data", "simdata_out", filename)
         ]
         
         exists = False

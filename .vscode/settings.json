@@ -17,7 +17,7 @@
   "files.watcherExclude": {
     "**/tmp_output/**": true,
     "**/tmp/**": true,
-    "**/data_im/**": true,
+    "data/**": true,
     "**/output/**": true,
     "**/pic/**": true,
     "**/text/**": true,
@@ -26,7 +26,7 @@
   "search.exclude": {
     "**/tmp_output": true,
     "**/tmp": true,
-    "**/data_im": true,
+    "data": true,
     "**/output": true,
     "**/pic": true,
     "**/text": true,
