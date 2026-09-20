@@ -64,6 +64,7 @@ except ImportError:
     pass
 
 from naming import SIM_SHAPE
+from data_paths import experiment_dir, resolve
 
 # シミュレーションの時間刻み [s]。sourse_new_2 と同じ式
 # （sourse_new_2 は import 時に matplotlib を引くだけで副作用は無いが、
@@ -76,12 +77,22 @@ EXP_DT = 0.5e-9      # 実験のサンプリング間隔 [s]
 EXP_T_START = 5.5e-6  # 実験波形の切り出し（calculate_avg_waveforms.py と同じ）
 EXP_T_END = 9.0e-6
 
-SIM_DIR_CANDIDATES = [
-    "tmp_output/sim_csv",
-    "tmp_output/sim",
-    "data/sim_csv",
-    "vscode/simulation/tmp",
-]
+def sim_dir_candidates():
+    """シミュレーション CSV を探す場所を、優先順に返す。
+
+    場所の解決は data_paths.py に集約されている（本体の作業コピー → 隣の lab-data
+    の順、AGENTS.md 11章）。パスを直書きすると、データリポジトリ側にしか結果が無い
+    環境で見つけられなくなる。末尾の2つは旧レイアウトの名残で、手元に残っている
+    場合のための保険。
+    """
+    out = []
+    for kind in ("simulation/sim_csv", "simulation/sim"):
+        try:
+            out.append(str(resolve(kind)))
+        except FileNotFoundError:
+            pass
+    out += ["data/sim_csv", "vscode/simulation/tmp"]
+    return out
 
 
 # ---------------------------------------------------------------- 読み込み
@@ -107,13 +118,15 @@ def find_sim_dir(explicit=None):
         if not os.path.isdir(explicit):
             raise SystemExit(f"--sim-dir が存在しない: {explicit}")
         return explicit
-    for d in SIM_DIR_CANDIDATES:
+    cands = sim_dir_candidates()
+    for d in cands:
         if os.path.isdir(d) and glob.glob(os.path.join(d, f"{SIM_SHAPE.lower()}_cupy_*.csv")):
             return d
     raise SystemExit(
         "シミュレーション CSV が見つからない。--sim-dir で指定してください。\n"
-        "  探した場所: " + ", ".join(SIM_DIR_CANDIDATES) + "\n"
-        "  （macOS 側には tmp_output/ が同期されていない。研究室の Windows 機で実行）"
+        "  探した場所:\n    " + "\n    ".join(cands) + "\n"
+        "  データリポジトリを本体の隣に clone するか LAB_DATA_DIR を設定する方法も\n"
+        "  あります（AGENTS.md 11章）。"
     )
 
 
@@ -328,8 +341,10 @@ def main():
                     help="d_shape で許すラグ [サンプル]（既定 200 ≒ 142 ns）")
     ap.add_argument("--fmin", type=float, default=2e6)
     ap.add_argument("--fmax", type=float, default=10e6)
-    ap.add_argument("--exp-dir", default="vscode/simulation/data/ex_data")
-    ap.add_argument("--exp-index", default="vscode/simulation/data/ex_index.csv")
+    ap.add_argument("--exp-dir", default=None,
+                    help="既定は data_paths.experiment_dir() が解決する")
+    ap.add_argument("--exp-index", default=None,
+                    help="既定は data_paths.experiment_dir() が解決する")
     ap.add_argument("--no-exp", action="store_true", help="実験ノイズ床の算出を省く")
     args = ap.parse_args()
 
@@ -377,7 +392,16 @@ def main():
     # --- ノイズ床
     floor = None
     if not args.no_exp:
-        floor = experimental_floor(args.exp_dir, args.exp_index, args.fmin, args.fmax)
+        exp_dir, exp_index = args.exp_dir, args.exp_index
+        if exp_dir is None or exp_index is None:
+            try:
+                _d = experiment_dir()
+                exp_dir = exp_dir or str(_d / "ex_data")
+                exp_index = exp_index or str(_d / "ex_index.csv")
+            except FileNotFoundError as e:
+                say(f"実験データが見つからない: {e}")
+        if exp_dir and exp_index:
+            floor = experimental_floor(exp_dir, exp_index, args.fmin, args.fmax)
     if floor:
         say(f"実験の繰り返しばらつき（ノイズ床, {floor['n_pairs']} ペア）")
         say(f"  時間波形   中央値 {floor['median']:.4f} rad, 95% {floor['p95']:.4f} rad")
