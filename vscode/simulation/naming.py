@@ -68,3 +68,25 @@ def sim3d_csv_name(shape, pitch_m, depth_m):
     return (f"{shape.lower()}_cupy3d"
             f"_pitch{m_code(pitch_m)}"
             f"_depth{m_code(depth_m)}.csv")
+
+
+def ani_npz_name(prefix, probe_d_m, pitch_m, width_m, depth_m):
+    """応力場アニメーション NPZ のファイル名を作る。
+
+        <prefix>_psize<ps>_pitch<p>_width<w>_depth<d>_data.npz
+
+    例) ani_npz_name("kukei_field", 0.007, 2.00e-3, 0.15e-3, 0.20e-3)
+        → 'kukei_field_psize700_pitch200_width15_depth20_data.npz'
+
+    順序は AGENTS.md 7章の表（psize → pitch → width → depth）に合わせてある。
+
+    なお `kukei_ani.py` の `make_base_name()` は同じ順序だが
+    `int(round(value_m * 1e5))` で組み立てているため、depth 0.125 mm が
+    12.5 ではなく 12 になる（バンカーズ・ラウンディング）。こちらは m_code() を
+    使うので 12.5 のまま残る。kukei_ani.py 側の移行は未着手（HANDOFF.md 参照）。
+    """
+    return (f"{prefix}"
+            f"_psize{m_code(probe_d_m)}"
+            f"_pitch{m_code(pitch_m)}"
+            f"_width{m_code(width_m)}"
+            f"_depth{m_code(depth_m)}_data.npz")
