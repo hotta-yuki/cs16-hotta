@@ -179,6 +179,9 @@ rebuild instructions, including the CuPy DLL hook, are in `SETUP.md`.
   edited per-use (see its docstring) — check them before running any script that imports it.
 - `sourse_0211.py` — a separate, older helper module (wave-matrix construction, peak detection);
   not the shared library and not imported by the plotting scripts above.
+- `data_paths.py` — resolves where the data actually is: the in-repo working copy first, then the
+  sibling `lab-data` repo (or `$LAB_DATA_DIR`). Every script that touches experiment or simulation
+  data goes through it instead of hardcoding a path.
 - `calculate_avg_waveforms.py` — independent of `sourse_new_2.py`: averages experimental scope CSVs
   (indexed by `data/ex_index.csv`) per pitch/depth/width group, aligns peaks against the matching
   simulation output in `tmp_output/sim_csv/`, and writes comparison plots to `data/comparison_plots/`.
@@ -231,7 +234,11 @@ that file for the full list) — they hold regenerable simulation outputs and pl
 truth. `scripts/history.db` is intentionally tracked despite being a generated SQLite file, since it
 backs the audit log.
 
-> 📝 補足: `tmp/`, `tmp_output/`, `pic/`, `output/`, `data/`(旧`data_im/`)等は`.gitignore`で除外されている
+> 📝 補足: **データは別リポジトリ `lab-data` で管理します**(`AGENTS.md` 11章)。本体の隣に clone し、
+> Google Drive の外に置きます。パスを直書きせず`vscode/simulation/data_paths.py`を使い、
+> 2か所の同期は`scripts/sync_data_repo.py`で行ってください。
+>
+> `tmp/`, `tmp_output/`, `pic/`, `output/`, `data/`(旧`data_im/`)等は`.gitignore`で除外されている
 > 「再生成可能な出力」であり、正のデータではありません。一方`scripts/history.db`は生成物ですが
 > 監査ログの実体を保持するため意図的にgit管理下に置かれています。
 
@@ -255,6 +262,11 @@ thing that can put a broken file back, so work that is not committed is work tha
 - `scripts/history.db` and `進捗報告/gemini_log/` stay tracked (audit log); regenerable output
   (`tmp_output/`, `pic/`, `output/`, `data/`) stays ignored. New ignore entries get a comment
   saying why.
+- **Data lives in a separate repo, `lab-data`** (`AGENTS.md` §11) — experiment waveforms,
+  simulation CSVs and the plots made from them. It is cloned as a sibling of this repo and must
+  stay outside Google Drive. Never hardcode those paths: use `vscode/simulation/data_paths.py`
+  (`experiment_dir()` / `sim_csv_dir()` / `sim_dir()`), which prefers the in-repo working copy and
+  falls back to `../lab-data`. Mirror the two with `scripts/sync_data_repo.py`.
 
 > 📝 補足: **作業は必ず git にコミットする**(共通ルールは `AGENTS.md` 10章)。Google Drive 同期は
 > 最新状態しか持たないバックアップで、履歴ではありません。壊したものを戻せるのは git だけです。

@@ -6,14 +6,15 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 
 from naming import SIM_SHAPE, mm_code, sim_csv_name
+from data_paths import experiment_dir, sim_csv_dir
 
-# 設定
-base_dir = r'vscode/simulation/data'
+# 設定。データの場所は data_paths.py が解決する（本体の作業コピー → 隣の lab-data の順）
+base_dir = str(experiment_dir())
 data_dir = os.path.join(base_dir, 'ex_data')
 index_file = os.path.join(base_dir, 'ex_index.csv')
 avg_dir = os.path.join(base_dir, 'avg_waveforms')
 compare_dir = os.path.join(base_dir, 'comparison_plots')
-sim_dir = r'tmp_output/sim_csv'
+sim_dir = str(sim_csv_dir())
 
 for d in [avg_dir, compare_dir]:
     if not os.path.exists(d):

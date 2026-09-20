@@ -61,3 +61,9 @@ pastexam/
 # GitHub の上限 (100 MB) を超えるため、旧 data_im/ と同じく追跡しない。
 # 注: vscode/simulation/data/ は別物（実験データの正本）で、そちらは追跡している。
 /data/
+
+# 実験データは別リポジトリ lab-data で管理する（2026-09-17）。再現に時間がかかるので
+# git で履歴を残すが、コードより桁違いに大きいため本体リポジトリには入れない。
+# ここに残っているファイルは作業コピー兼 Google Drive のバックアップ。
+# 同期は scripts/sync_data_repo.py、理由と手順は AGENTS.md 11章。
+vscode/simulation/data/

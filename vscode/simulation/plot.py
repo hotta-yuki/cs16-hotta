@@ -6,6 +6,8 @@ import glob
 import pandas as pd
 import numpy as np
 
+from data_paths import experiment_dir
+
 """
 vscode\simulation\data\patC_csv 内の実験データを読み込み、
 平均波形および FFT スペクトル（個別・平均）をプロットするスクリプト。
@@ -14,7 +16,7 @@ vscode\simulation\data\patC_csv 内の実験データを読み込み、
 # =============================================================================
 # 設定
 # =============================================================================
-data_dir = os.path.join("vscode", "simulation", "data", "patC_csv")  
+data_dir = os.path.join(experiment_dir(), "patC_csv")  # 場所は data_paths.py が解決
 output_dir = "tmp_output"
 os.makedirs(output_dir, exist_ok=True)
 
