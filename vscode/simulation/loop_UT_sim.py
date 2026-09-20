@@ -2,7 +2,7 @@ import UT_FlawVariation_Sim
 import itertools
 import os
 
-from naming import sim_csv_name
+from naming import SIM_SHAPE, sim_csv_name
 
 def load_simdata(file_path):
     """
@@ -43,7 +43,8 @@ def load_simdata(file_path):
     return params
 
 def main():
-    csv_path = 'vscode\\simulation\\simdata.csv'
+    # リポジトリルートからの相対パス。ルート以外から実行すると見つからない（AGENTS.md 6章）
+    csv_path = os.path.join('vscode', 'simulation', 'simdata.csv')
     params = load_simdata(csv_path)
     
     widths = params['f_width']
@@ -63,7 +64,7 @@ def main():
     for i, (w, p, d) in enumerate(combinations):
         # ファイル名の生成と存在確認
         # 命名規則は AGENTS.md 7章（先輩リポジトリと共通）
-        filename = sim_csv_name(UT_FlawVariation_Sim.SHAPE, p, w, d)
+        filename = sim_csv_name(SIM_SHAPE, p, w, d)
         check_paths = [
             os.path.join("tmp_output", "sim", filename),
             os.path.join("data", "simdata_out", filename)
