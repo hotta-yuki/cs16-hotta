@@ -18,7 +18,6 @@ pic/
 
 # Large documents and archives (keep code only in git ideally)
 試験問題/
-資料/
 進捗報告/**/*.pdf
 進捗報告/**/*.synctex.gz
 
@@ -43,8 +42,17 @@ output/
 node_modules/
 
 # Notion exports / reference manuscripts (large zips; 2026-09-17)
-text/
 pastexam/
+
+# 資料/ と text/ は 2026-09-23 に追跡へ変更（それまでは両方とも除外していた）。
+# 発表スライド・原稿・輪読資料も履歴に残したいため。第三者の論文・教科書 PDF を
+# 含むので、リポジトリが private であることが前提（公開したままだと再配布になる）。
+# 下の 1 件だけは 663 MB あり、GitHub の上限 100 MB を超えて push がリポジトリごと
+# 失敗するため除外を続ける。実体は Google Drive に置く。
+text/seminar_20260722/堀田_夏セミナー2026.pptx
+# 上の *.gif は生成アニメ（数十 MB）向けの除外。資料・原稿に貼る図は小さいので戻す。
+!資料/**/*.gif
+!text/**/*.gif
 
 # LaTeX build artifacts
 *.fdb_latexmk
