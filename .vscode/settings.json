@@ -12,6 +12,61 @@
     "files.encoding": "utf8"
   },
 
+  // --- LaTeX Workshop（保存するたびに自動でコンパイルする） -----------------
+  // このリポジトリは pTeX (ptex2pdf) を使う。pdflatex でも xelatex でもない。
+  // build_report.ps1 と同じ呼び方（-l = platex 経由、-kanji=utf8、2回実行）に
+  // 揃えてあるので、手で叩いたときと同じ PDF が出る。
+  // 注意: ここでは ptex2pdf が PATH にあることを前提にしている。研究室の Windows 機で
+  // 「ptex2pdf が見つからない」と言われたら、command を
+  // "C:\\texlive\\2026\\bin\\windows\\ptex2pdf.exe" に書き換えること
+  // （build_report.ps1 が持っているフォールバックと同じパス）。
+  "latex-workshop.latex.tools": [
+    {
+      "name": "ptex2pdf",
+      "command": "ptex2pdf",
+      "args": [
+        "-l",
+        "-ot",
+        "-kanji=utf8 -synctex=1 -interaction=nonstopmode",
+        "%DOCFILE%"
+      ],
+      "env": {}
+    }
+  ],
+  // 相互参照（\ref・\label）を解決するために2回通す
+  "latex-workshop.latex.recipes": [
+    {
+      "name": "ptex2pdf ×2",
+      "tools": ["ptex2pdf", "ptex2pdf"]
+    }
+  ],
+  "latex-workshop.latex.recipe.default": "first",
+
+  // 保存したときだけビルドする（既定の onFileChange は入力のたびに走って重い）
+  "latex-workshop.latex.autoBuild.run": "onSave",
+  // PDF は VS Code のタブで開く。SyncTeX で .tex <-> PDF を相互ジャンプできる
+  "latex-workshop.view.pdf.viewer": "tab",
+
+  // ビルド後に中間ファイルを消す（.pdf は消さない）。
+  // 進捗報告/tex/ に .aux や .log を残さないための設定で、build_report.ps1 と同じ方針。
+  "latex-workshop.latex.autoClean.run": "onBuilt",
+  "latex-workshop.latex.clean.fileTypes": [
+    "*.aux",
+    "*.bbl",
+    "*.blg",
+    "*.dvi",
+    "*.fdb_latexmk",
+    "*.fls",
+    "*.idx",
+    "*.ind",
+    "*.lof",
+    "*.log",
+    "*.lot",
+    "*.out",
+    "*.synctex.gz",
+    "*.toc"
+  ],
+
   // 生成物・巨大ディレクトリを検索とファイル監視から除外する
   // (vscode/project1 だけで 16GB あるため、外さないと検索が実用にならない)
   "files.watcherExclude": {
