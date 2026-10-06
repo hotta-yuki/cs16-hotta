@@ -5,12 +5,27 @@ Liu の2編（2017年 AIP Advances / 2018年 博士論文）の中心的な主�
 ではなく、遅れて届く後続振動（テイル）である。メインバンだけを窓で切り出すと
 異常は消える」というもの（2017年論文 図5、博論 図2-5）。
 
-そこでこのモジュールは、1本の波形を
+切り方は論文に合わせてある（2017年論文 II.B 節、博論 2.3.2.2 節）。
+**境界の時刻をひとつ決め、その前をメインバン、後をテイルとする**。間は空けない。
 
-    送信  |  静穏  |  メインバン  |  テイル
-    ------+--------+-------------+---------------->  t
+    送信  |  静穏  |===== メインバン =====|===== テイル =====|
+    ------+--------+----------------------+------------------>  t
+                   t_start              t_cut             t_end
 
-に分け、メインバンとテイルそれぞれの振幅スペクトルを出す。
+そして 2017年論文 II.B 節が列挙している3通りの窓で FFT する。
+
+    (i)  全体（メインバン＋テイル）を1つの信号として
+    (ii) メインバンだけ
+    (iii) テイルだけ
+
+**異常（ディップ／ティップ）は (i) にしか現れない。** (ii) には何も出ず、
+(iii) には異常周波数に山が出る（博論 図2-5）。3つを並べて初めて
+「異常は FFT が作った見かけのもの」という主張が確認できるので、
+(i) を省いてはいけない。
+
+境界 t_cut の決め方も論文は明示している —— 平滑面（傷なし）の反射と比べ、
+**平滑面側が無信号になる時刻**を採る。平滑面の波形があれば ``--reference``
+で渡せる。無い場合は、エコーの包絡線が減衰して一定割合を下回る時刻を使う。
 シミュレーション出力（時間軸なしの CSV）と実験の平均波形（time,voltage の CSV）の
 どちらも読める。
 
@@ -20,6 +35,13 @@ Liu の2編（2017年 AIP Advances / 2018年 博士論文）の中心的な主�
 
     # 1条件だけ見る
     python vscode/simulation/tail_fft.py --pitch 2.00 --depth 0.20 --width 0.40
+
+    # 境界を論文のように自分で決める
+    python vscode/simulation/tail_fft.py --pitch 2.00 --depth 0.20 --width 0.40 --cut 7.6
+
+    # 平滑面の波形から境界を決める（論文の方式）
+    python vscode/simulation/tail_fft.py --pitch 2.00 --depth 0.20 --width 0.40 \
+        --reference tmp_output/sim_csv/smooth.csv
 
     # 見つかった全条件をまとめて処理して集計 CSV を書く
     python vscode/simulation/tail_fft.py --all
@@ -138,23 +160,77 @@ def find_echo(t, v, skip=None):
     return float(t[i0 + int(np.argmax(env[i0:]))])
 
 
-def split(t, v, t_echo=None, margin=None):
-    """波形を (メインバン, テイル) の時間区間に切る。
+def find_cut(t, v, t_echo=None, ref=None, frac=0.10):
+    """メインバンとテイルの境界時刻を決める。
 
-    メインバンは「エコーのピーク ± 送信波の長さ」、テイルはその後ろ全部。
-    送信波より短いメインバンはありえないので、窓幅の根拠をそこに置いている。
+    論文の方式（博論 2.3.2.2）は「平滑面の反射が無信号になる時刻」。
+    ``ref`` に平滑面（傷なし）の波形を (t, v) で渡すとこれに従う。
+
+    ``ref`` が無い場合は、凹凸面の波形そのものから決める。エコーのピーク以降で
+    包絡線がピークの ``frac`` 倍を**下回ったまま**になる最初の時刻を採る。
+    直達エコーが終わった時刻、という意味では論文の判定と同じものを見ている。
+    """
+    dt = float(np.diff(t).mean())
+    width = max(int(0.05e-6 / dt), 1)
+    if t_echo is None:
+        t_echo = find_echo(t, v)
+
+    src_t, src_v = (ref if ref is not None else (t, v))
+    env = np.convolve(np.abs(src_v), np.ones(width) / width, mode="same")
+    i_pk = int(np.searchsorted(src_t, t_echo))
+    i_pk = min(max(i_pk, 0), len(env) - 1)
+    thr = env[i_pk:].max() * frac
+
+    below = env[i_pk:] < thr
+    # 閾値を下回り、かつ送信波1つぶんの長さだけ下回り続ける最初の点。
+    # 「以降ずっと下回る」にすると、記録末尾に2往復目の反射が入っている波形
+    # （板厚 20 mm なら 13.96 us）で最後まで到達してしまい、テイル窓が消える。
+    hold = max(int(SRC_LEN / dt), 1)
+    idx = None
+    for i in range(len(below) - hold):
+        if below[i:i + hold].all():
+            idx = i
+            break
+    if idx is None:                      # 一度も静かにならない
+        idx = max(len(below) - hold - 1, 1)
+    t_cut = float(src_t[i_pk + idx])
+
+    # テイル窓が潰れていないか確かめる
+    if t_cut > float(src_t[-1]) - SRC_LEN:
+        raise ValueError(
+            f"境界が記録の末尾に寄りすぎています（cut={t_cut*1e6:.3f} us, "
+            f"末尾={src_t[-1]*1e6:.3f} us）。--cut で明示するか、frac を上げてください")
+    return t_cut
+
+
+def windows(t, v, t_cut=None, t_start=None, ref=None):
+    """論文の3通りの窓を返す。
+
+    2017年論文 II.B 節が列挙している切り出しに対応する。
+
+        whole : (t_start, t_end)   全体。**異常はここにしか出ない**
+        main  : (t_start, t_cut)   メインバン
+        tail  : (t_cut,  t_end)    テイル
+
+    ``t_start`` は既定でエコー到達の少し手前。シミュレーションの波形には
+    先頭に送信波が入っているので、これを含めると解析対象が変わってしまう。
+    論文が扱っているのは反射信号だけなので、送信波は除く。
 
     Returns
     -------
-    (t0_main, t1_main), (t0_tail, t1_tail)
+    dict  {"whole": (t0,t1), "main": (t0,t1), "tail": (t0,t1)}, t_cut
     """
-    if t_echo is None:
-        t_echo = find_echo(t, v)
-    if margin is None:
-        margin = SRC_LEN
-    main = (t_echo - 0.3 * margin, t_echo + 0.7 * margin)
-    tail = (t_echo + 1.2 * margin, float(t[-1]))
-    return main, tail
+    t_echo = find_echo(t, v)
+    if t_start is None:
+        t_start = max(float(t[0]), t_echo - SRC_LEN)
+    if t_cut is None:
+        t_cut = find_cut(t, v, t_echo, ref=ref)
+    t_end = float(t[-1])
+    return {
+        "whole": (t_start, t_end),
+        "main": (t_start, t_cut),
+        "tail": (t_cut, t_end),
+    }, t_cut
 
 
 def spectrum(t, v, window, nfft=1 << 16):
@@ -183,74 +259,86 @@ def predicted(pitch_mm, orders=(1, 2, 3, 4, 5, 6), c=C_R, fmax=9e6):
     return [x for x in out if x <= fmax]
 
 
-def analyze(path, nfft=1 << 16):
-    """1本の波形を処理して結果を dict で返す。"""
+def analyze(path, nfft=1 << 16, t_cut=None, ref_path=None):
+    """1本の波形を論文の3通りの窓で処理して結果を dict で返す。"""
     t, v = load_waveform(path)
+    ref = load_waveform(ref_path) if ref_path else None
     t_echo = find_echo(t, v)
-    w_main, w_tail = split(t, v, t_echo)
-    f, x_main, res_main = spectrum(t, v, w_main, nfft)
-    _, x_tail, res_tail = spectrum(t, v, w_tail, nfft)
+    wins, t_cut = windows(t, v, t_cut=t_cut, ref=ref)
+
+    f = None
+    spec, res = {}, {}
+    for key, w in wins.items():
+        f, spec[key], res[key] = spectrum(t, v, w, nfft)
 
     band = (f > 0.8e6) & (f < 9.0e6)
-    sel_main = (t >= w_main[0]) & (t < w_main[1])
-    sel_tail = (t >= w_tail[0]) & (t < w_tail[1])
+    sel_main = (t >= wins["main"][0]) & (t < wins["main"][1])
+    sel_tail = (t >= wins["tail"][0]) & (t < wins["tail"][1])
     main_pk = float(np.abs(v[sel_main]).max())
     tail_rms = float(np.sqrt(np.mean(v[sel_tail] ** 2)))
 
-    params = parse_params(path)
     return dict(
-        path=str(path), params=params,
-        t=t, v=v, t_echo=t_echo, window_main=w_main, window_tail=w_tail,
-        f=f, x_main=x_main, x_tail=x_tail, band=band,
-        res_main=res_main, res_tail=res_tail,
+        path=str(path), params=parse_params(path),
+        t=t, v=v, t_echo=t_echo, t_cut=t_cut, windows=wins,
+        f=f, spec=spec, res=res, band=band,
         main_peak=main_pk, tail_rms=tail_rms, ratio=tail_rms / main_pk,
-        f_peak_tail=float(f[band][int(np.argmax(x_tail[band]))]),
+        f_peak_tail=float(f[band][int(np.argmax(spec["tail"][band]))]),
     )
 
 
 # --- 図 -------------------------------------------------------------------
 
+_COL = {"whole": "#444444", "main": "#2f5d9e", "tail": "#a86a14"}
+_LAB = {"whole": "whole (main+tail)", "main": "main bang", "tail": "tail"}
+
+
 def plot(r, out_path=None):
-    """1条件ぶんの図（波形＋2つのスペクトル）を書き出す。"""
+    """波形＋3通りの窓のスペクトルを書き出す。
+
+    上段が波形と境界、下段が whole / main / tail の振幅スペクトル。
+    論文の主張どおりなら、異常は whole にだけ現れる。
+    """
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     t, v = r["t"], r["v"]
-    fig, ax = plt.subplots(2, 1, figsize=(8.5, 6.4),
-                           gridspec_kw=dict(height_ratios=[1, 1.25], hspace=.32))
+    fig, ax = plt.subplots(2, 1, figsize=(8.8, 6.8),
+                           gridspec_kw=dict(height_ratios=[1, 1.3], hspace=.34))
+    fig.subplots_adjust(left=.10, right=.97, top=.92, bottom=.09)
 
     ax[0].plot(t * 1e6, v / np.abs(v).max(), lw=.5, color="#444")
-    for w, c, lab in ((r["window_main"], "#2f5d9e", "main bang"),
-                      (r["window_tail"], "#a86a14", "tail")):
-        ax[0].axvspan(w[0] * 1e6, w[1] * 1e6, color=c, alpha=.14, lw=0)
-        ax[0].text((w[0] + w[1]) / 2 * 1e6, 1.08, lab, ha="center",
-                   fontsize=8.5, color=c)
-    ax[0].axvline(r["t_echo"] * 1e6, color="#b03a3a", lw=.9, ls="--")
+    for key in ("main", "tail"):
+        w = r["windows"][key]
+        ax[0].axvspan(w[0] * 1e6, w[1] * 1e6, color=_COL[key], alpha=.14, lw=0)
+        ax[0].text((w[0] + w[1]) / 2 * 1e6, 1.08, _LAB[key], ha="center",
+                   fontsize=8.5, color=_COL[key])
+    ax[0].axvline(r["t_cut"] * 1e6, color="#b03a3a", lw=1.1)
+    ax[0].text(r["t_cut"] * 1e6, -1.16, f"  cut {r['t_cut']*1e6:.2f} us",
+               fontsize=8, color="#b03a3a")
     ax[0].set_xlabel("Time [us]"); ax[0].set_ylabel("Normalized")
-    ax[0].set_ylim(-1.2, 1.25)
+    ax[0].set_ylim(-1.25, 1.25)
 
     f, b = r["f"], r["band"]
-    for key, c, lab, res in (("x_main", "#2f5d9e", "main bang", r["res_main"]),
-                             ("x_tail", "#a86a14", "tail", r["res_tail"])):
-        x = r[key][b]
-        ax[1].plot(f[b] / 1e6, x / x.max(), lw=1.4, color=c,
-                   label=f"{lab}  (resolution {res/1e6:.3f} MHz)")
+    for key in ("whole", "main", "tail"):
+        x = r["spec"][key][b]
+        ax[1].plot(f[b] / 1e6, x / x.max(), lw=1.5, color=_COL[key],
+                   label=f"{_LAB[key]}  ({r['res'][key]/1e6:.3f} MHz)")
     if r["params"]:
         for m, fa in enumerate(predicted(r["params"][0]), start=1):
             ax[1].axvline(fa / 1e6, color="#b03a3a", lw=.8, ls=":")
             ax[1].text(fa / 1e6, 1.03, f"m{m}", ha="center", fontsize=7,
                        color="#b03a3a")
     ax[1].set_xlabel("Frequency [MHz]"); ax[1].set_ylabel("Normalized")
-    ax[1].set_ylim(0, 1.12); ax[1].legend(fontsize=8)
+    ax[1].set_ylim(0, 1.12)
+    ax[1].legend(fontsize=8, title="window (resolution)", title_fontsize=8)
 
     if r["params"]:
-        p, d, w = r["params"]
-        title = f"pitch {p:.2f} / depth {d:.3f} / width {w:.2f} mm"
+        p_, d_, w_ = r["params"]
+        title = f"pitch {p_:.2f} / depth {d_:.3f} / width {w_:.2f} mm"
     else:
         title = Path(r["path"]).name
     fig.suptitle(title + f"    tail/main = {r['ratio']:.4f}", fontsize=10)
-    fig.tight_layout(rect=(0, 0, 1, 0.96))
 
     if out_path is None:
         OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -271,7 +359,7 @@ def iter_files(source="simulation"):
     return sorted(d.glob("avg_wave_*.csv"))
 
 
-def run_all(source="simulation", make_plots=False):
+def run_all(source="simulation", make_plots=False, t_cut=None, ref_path=None):
     """全条件を処理して集計 CSV を書く。"""
     files = iter_files(source)
     if not files:
@@ -279,7 +367,7 @@ def run_all(source="simulation", make_plots=False):
 
     rows = []
     for path in files:
-        r = analyze(path)
+        r = analyze(path, t_cut=t_cut, ref_path=ref_path)
         p, d, w = r["params"] if r["params"] else (None, None, None)
         nearest = ""
         if p:
@@ -290,11 +378,12 @@ def run_all(source="simulation", make_plots=False):
         rows.append(dict(
             file=Path(path).name, pitch_mm=p, depth_mm=d, width_mm=w,
             echo_us=round(r["t_echo"] * 1e6, 4),
+            cut_us=round(r["t_cut"] * 1e6, 4),
             main_peak=round(r["main_peak"], 6),
             tail_rms=round(r["tail_rms"], 6),
             ratio=round(r["ratio"], 6),
             tail_peak_MHz=round(r["f_peak_tail"] / 1e6, 4),
-            tail_resolution_MHz=round(r["res_tail"] / 1e6, 4),
+            tail_resolution_MHz=round(r["res"]["tail"] / 1e6, 4),
             nearest_order=nearest,
         ))
         if make_plots:
@@ -330,20 +419,26 @@ def main():
     ap.add_argument("--depth", type=float, help="深さ [mm]")
     ap.add_argument("--width", type=float, help="幅 [mm]")
     ap.add_argument("--file", help="ファイルを直接指定する")
+    ap.add_argument("--cut", type=float,
+                    help="メインバンとテイルの境界 [us]。論文のように自分で決める場合")
+    ap.add_argument("--reference",
+                    help="平滑面（傷なし）の波形。論文の方式で境界を決める")
     args = ap.parse_args()
 
     if not _JP:
         print("注意: japanize_matplotlib が無いため図のラベルは英語になります\n")
 
     if args.all:
-        rows, out = run_all(args.source, make_plots=args.plots)
-        hdr = (f"{'pitch':>6}{'depth':>7}{'width':>7}{'echo[us]':>10}"
+        rows, out = run_all(args.source, make_plots=args.plots,
+                            t_cut=args.cut * 1e-6 if args.cut else None,
+                            ref_path=args.reference)
+        hdr = (f"{'pitch':>6}{'depth':>7}{'width':>7}{'echo[us]':>10}{'cut[us]':>9}"
                f"{'main':>9}{'tailRMS':>10}{'ratio':>9}"
                f"{'tailPk[MHz]':>13}  最寄次数")
         print(hdr)
         for r in rows:
             print(f"{r['pitch_mm']:6.2f}{r['depth_mm']:7.3f}{r['width_mm']:7.2f}"
-                  f"{r['echo_us']:10.3f}{r['main_peak']:9.4f}{r['tail_rms']:10.5f}"
+                  f"{r['echo_us']:10.3f}{r['cut_us']:9.3f}{r['main_peak']:9.4f}{r['tail_rms']:10.5f}"
                   f"{r['ratio']:9.4f}{r['tail_peak_MHz']:13.2f}  {r['nearest_order']}")
         print(f"\n周波数分解能（テイル窓）: {rows[0]['tail_resolution_MHz']:.3f} MHz")
         print(f"集計: {out}")
@@ -356,17 +451,21 @@ def main():
     else:
         ap.error("--all か、--pitch/--depth/--width か、--file を指定してください")
 
-    r = analyze(path)
+    r = analyze(path, t_cut=args.cut * 1e-6 if args.cut else None,
+                ref_path=args.reference)
     print(f"ファイル    : {Path(path).name}")
     if r["params"]:
         print(f"条件        : pitch {r['params'][0]:.2f} / "
               f"depth {r['params'][1]:.3f} / width {r['params'][2]:.2f} mm")
     print(f"エコー到達  : {r['t_echo']*1e6:.3f} us "
           f"（理論値 {ECHO_TIME*1e6:.3f} us）")
-    print(f"メインバン窓: {r['window_main'][0]*1e6:.3f} – {r['window_main'][1]*1e6:.3f} us"
-          f"   分解能 {r['res_main']/1e6:.3f} MHz")
-    print(f"テイル窓    : {r['window_tail'][0]*1e6:.3f} – {r['window_tail'][1]*1e6:.3f} us"
-          f"   分解能 {r['res_tail']/1e6:.3f} MHz")
+    print(f"境界 (cut)  : {r['t_cut']*1e6:.3f} us"
+          + ("  ← 指定値" if args.cut else "  ← 自動判定"))
+    for key, lab in (("whole", "全体        "), ("main", "メインバン  "),
+                     ("tail", "テイル      ")):
+        w = r["windows"][key]
+        print(f"{lab}: {w[0]*1e6:7.3f} – {w[1]*1e6:7.3f} us"
+              f"   分解能 {r['res'][key]/1e6:.3f} MHz")
     print(f"メインバン最大: {r['main_peak']:.5f}")
     print(f"テイル RMS    : {r['tail_rms']:.6f}")
     print(f"テイル/メイン : {r['ratio']:.5f}")
