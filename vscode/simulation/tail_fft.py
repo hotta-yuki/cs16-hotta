@@ -293,52 +293,50 @@ _LAB = {"whole": "whole (main+tail)", "main": "main bang", "tail": "tail"}
 
 
 def plot(r, out_path=None):
-    """波形＋3通りの窓のスペクトルを書き出す。
+    """全体 / メインバン / テイル の3つのスペクトルを並べて書き出す。
 
-    上段が波形と境界、下段が whole / main / tail の振幅スペクトル。
-    論文の主張どおりなら、異常は whole にだけ現れる。
+    論文（2017年論文 II.B 節）が比較している3通りの窓をそのまま3段に置く。
+    異常（ディップ・ティップ）は一番上の「全体」にだけ現れ、メインバンには
+    何も出ず、テイルには異常周波数に山が出る（博論 図2-5）。
     """
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    t, v = r["t"], r["v"]
-    fig, ax = plt.subplots(2, 1, figsize=(8.8, 6.8),
-                           gridspec_kw=dict(height_ratios=[1, 1.3], hspace=.34))
-    fig.subplots_adjust(left=.10, right=.97, top=.92, bottom=.09)
-
-    ax[0].plot(t * 1e6, v / np.abs(v).max(), lw=.5, color="#444")
-    for key in ("main", "tail"):
-        w = r["windows"][key]
-        ax[0].axvspan(w[0] * 1e6, w[1] * 1e6, color=_COL[key], alpha=.14, lw=0)
-        ax[0].text((w[0] + w[1]) / 2 * 1e6, 1.08, _LAB[key], ha="center",
-                   fontsize=8.5, color=_COL[key])
-    ax[0].axvline(r["t_cut"] * 1e6, color="#b03a3a", lw=1.1)
-    ax[0].text(r["t_cut"] * 1e6, -1.16, f"  cut {r['t_cut']*1e6:.2f} us",
-               fontsize=8, color="#b03a3a")
-    ax[0].set_xlabel("Time [us]"); ax[0].set_ylabel("Normalized")
-    ax[0].set_ylim(-1.25, 1.25)
-
     f, b = r["f"], r["band"]
-    for key in ("whole", "main", "tail"):
+    keys = ("whole", "main", "tail")
+    fig, axes = plt.subplots(3, 1, figsize=(8.4, 8.0), sharex=True)
+    fig.subplots_adjust(left=.10, right=.97, top=.92, bottom=.07, hspace=.18)
+
+    for ax, key in zip(axes, keys):
         x = r["spec"][key][b]
-        ax[1].plot(f[b] / 1e6, x / x.max(), lw=1.5, color=_COL[key],
-                   label=f"{_LAB[key]}  ({r['res'][key]/1e6:.3f} MHz)")
-    if r["params"]:
-        for m, fa in enumerate(predicted(r["params"][0]), start=1):
-            ax[1].axvline(fa / 1e6, color="#b03a3a", lw=.8, ls=":")
-            ax[1].text(fa / 1e6, 1.03, f"m{m}", ha="center", fontsize=7,
-                       color="#b03a3a")
-    ax[1].set_xlabel("Frequency [MHz]"); ax[1].set_ylabel("Normalized")
-    ax[1].set_ylim(0, 1.12)
-    ax[1].legend(fontsize=8, title="window (resolution)", title_fontsize=8)
+        ax.fill_between(f[b] / 1e6, 0, x / x.max(), color=_COL[key], alpha=.12, lw=0)
+        ax.plot(f[b] / 1e6, x / x.max(), lw=1.6, color=_COL[key])
+        if r["params"]:
+            for m, fa in enumerate(predicted(r["params"][0]), start=1):
+                ax.axvline(fa / 1e6, color="#b03a3a", lw=.8, ls=":")
+                if ax is axes[0]:
+                    ax.text(fa / 1e6, 1.04, f"m{m}", ha="center", fontsize=7.5,
+                            color="#b03a3a")
+        w = r["windows"][key]
+        ax.set_title(f"{_LAB[key]}   {w[0]*1e6:.2f}–{w[1]*1e6:.2f} us"
+                     f"   (resolution {r['res'][key]/1e6:.3f} MHz)",
+                     fontsize=9.5, loc="left", color=_COL[key])
+        ax.set_ylabel("Normalized")
+        ax.set_ylim(0, 1.12)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
+
+    axes[-1].set_xlabel("Frequency [MHz]")
 
     if r["params"]:
         p_, d_, w_ = r["params"]
-        title = f"pitch {p_:.2f} / depth {d_:.3f} / width {w_:.2f} mm"
+        title = (f"pitch {p_:.2f} / depth {d_:.3f} / width {w_:.2f} mm"
+                 f"    cut {r['t_cut']*1e6:.2f} us"
+                 f"    tail/main = {r['ratio']:.4f}")
     else:
         title = Path(r["path"]).name
-    fig.suptitle(title + f"    tail/main = {r['ratio']:.4f}", fontsize=10)
+    fig.suptitle(title, fontsize=10)
 
     if out_path is None:
         OUT_DIR.mkdir(parents=True, exist_ok=True)
