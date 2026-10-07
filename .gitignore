@@ -36,6 +36,13 @@ Exam/
 # data_im/ は 2026-09-17 に data/ へリネーム（下の /data/ を参照）
 output/
 *output/
+# 例外: tmp_output/wood_anomaly/ だけは追跡する（2026-10-07、約 0.9 MB）。
+# 9/23 の週次レポートが根拠にしている図と要約 CSV で、データ用の lab-data が
+# GitHub にまだ無いため、本体で履歴を残す。lab-data ができたらそちらへ移してよい。
+# '!' で中身を戻すには親ディレクトリを除外しない形にする必要がある（.vscode と同じ理由）。
+!tmp_output/
+tmp_output/*
+!tmp_output/wood_anomaly/
 *.npz
 *.mp4
 *.gif
