@@ -29,6 +29,7 @@ _LAYOUT = {
     "plots/comparison_plots": REPO_ROOT / "tmp_output" / "comparison_plots",
     "plots/plots_simulation_fft": REPO_ROOT / "tmp_output" / "plots_simulation_fft",
     "plots/plots_simulation_waveform": REPO_ROOT / "tmp_output" / "plots_simulation_waveform",
+    "plots/wood_anomaly": REPO_ROOT / "tmp_output" / "wood_anomaly",
 }
 
 
