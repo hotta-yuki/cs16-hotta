@@ -3,6 +3,10 @@ kukei_ani.py — 矩形溝 FDTD アニメーション生成・表示
 
 kusabi_ani.py / ushape_ani.py と同形式の NPZ を出力する。
 animation_player_for_npz.py でそのまま再生可能。
+
+物理定数は config.py、きずの形状マスクは geometry.py（FDTD 本体と共通）。
+コマンドライン引数は configure() の中でしか読まないので、
+このファイルを import しても副作用はない。
 """
 import numpy as np
 import cupy as cp
@@ -17,20 +21,27 @@ from matplotlib import animation
 from matplotlib.patches import Rectangle
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
+import geometry
+from config import (
+    ANIM_OUT_DIR, c11, c13, c55, cl, dt, dx, dz, mesh_length, nx, nz,
+    f_freq, probe_d as DEFAULT_PROBE_D, rho, steps_per_period, wn,
+    x_length, z_length,
+)
+
 # ================== 調整パラメータ ==================
 
-DEFAULT_OUTPUT_DIR = r"C:/Users/cs16/Roughness/project4/animation_files/202605_output"
+DEFAULT_OUTPUT_DIR = ANIM_OUT_DIR
 DEFAULT_WIDTH_MM = 0.25
 DEFAULT_DEPTH_MM = 0.10
 DEFAULT_PITCH_MM = 1.25
-DEFAULT_PROBE_WIDTH_MM = 7.0
+DEFAULT_PROBE_WIDTH_MM = DEFAULT_PROBE_D * 1e3
 DEFAULT_SAVE_INTERVAL = 10
 DEFAULT_GLOBAL_DOWNSAMPLE = 6
 DEFAULT_ZOOM_WIDTH_MM = 3.0
 DEFAULT_ZOOM_HEIGHT_MM = 0.5
 
 
-def parse_cli_args():
+def parse_cli_args(argv=None):
     parser = argparse.ArgumentParser(
         description="Generate and view Kukei FDTD animation data."
     )
@@ -55,7 +66,7 @@ def parse_cli_args():
     parser.add_argument("--global-downsample", type=int, default=DEFAULT_GLOBAL_DOWNSAMPLE)
     parser.add_argument("--zoom-width-mm", type=float, default=DEFAULT_ZOOM_WIDTH_MM)
     parser.add_argument("--zoom-height-mm", type=float, default=DEFAULT_ZOOM_HEIGHT_MM)
-    args, _ = parser.parse_known_args()
+    args, _ = parser.parse_known_args(argv)
     if args.width_mm >= args.pitch_mm:
         parser.error("--width-mm must be smaller than --pitch-mm")
     if args.probe_full and args.probe_half_specimen:
@@ -67,22 +78,103 @@ def parse_cli_args():
     return args
 
 
-_cli_args = parse_cli_args()
+# 以下は configure() が設定する実行時パラメータ。
+# 値が入るのは main() の中なので、このファイルを import しただけでは
+# コマンドライン引数を読まないし、何も計算しない。
+_cli_args = None
+output_dir = None
+f_width = f_depth = f_pitch = None          # 矩形溝パラメータ [m]
+save_interval = global_downsample = None    # アニメーション保存
+zoom_width_mm = zoom_height_mm = None       # 拡大表示の設定
+probe_d = probe_full = probe_half_specimen = None
+sz = sz_l = sz_r = None                     # 探触子の位置 [メッシュ]
+wave4 = None                                # 送信バースト波形
+t_max_steps = None
+roi_w_idx = roi_h_idx = None
+x_start = x_end = z_start = z_end = None    # 拡大領域のインデックス
+zoom_z_min = zoom_z_max = zoom_x_min = zoom_x_max = None
+extent_global = extent_zoom = None
 
-output_dir = _cli_args.output_dir
 
-# 矩形溝パラメータ
-f_width = _cli_args.width_mm * 1e-3
-f_depth = _cli_args.depth_mm * 1e-3
-f_pitch = _cli_args.pitch_mm * 1e-3
+def configure(argv=None):
+    """
+    コマンドライン引数を読み、実行時パラメータをモジュール変数に設定する。
+    main() から最初に呼ぶ。
+    """
+    global _cli_args, output_dir, f_width, f_depth, f_pitch
+    global save_interval, global_downsample, zoom_width_mm, zoom_height_mm
+    global probe_d, probe_full, probe_half_specimen, sz, sz_l, sz_r
+    global wave4, t_max_steps, roi_w_idx, roi_h_idx
+    global x_start, x_end, z_start, z_end
+    global zoom_z_min, zoom_z_max, zoom_x_min, zoom_x_max
+    global extent_global, extent_zoom
 
-# アニメーション保存
-save_interval = _cli_args.save_interval
-global_downsample = _cli_args.global_downsample
+    _cli_args = parse_cli_args(argv)
 
-# 拡大表示の設定
-zoom_width_mm = _cli_args.zoom_width_mm
-zoom_height_mm = _cli_args.zoom_height_mm
+    output_dir = _cli_args.output_dir
+
+    # 矩形溝パラメータ
+    f_width = _cli_args.width_mm * 1e-3
+    f_depth = _cli_args.depth_mm * 1e-3
+    f_pitch = _cli_args.pitch_mm * 1e-3
+
+    # アニメーション保存
+    save_interval = _cli_args.save_interval
+    global_downsample = _cli_args.global_downsample
+
+    # 拡大表示の設定
+    zoom_width_mm = _cli_args.zoom_width_mm
+    zoom_height_mm = _cli_args.zoom_height_mm
+
+    # ---------------- 拡大領域 ROI ----------------
+    roi_w_idx = int((zoom_width_mm * 1e-3) / dz)
+    roi_h_idx = int((zoom_height_mm * 1e-3) / dx)
+    z_center = nz // 2
+    z_start = max(0, z_center - roi_w_idx // 2)
+    z_end = min(nz, z_center + roi_w_idx // 2)
+    x_start = max(0, nx - roi_h_idx)
+    x_end = nx
+
+    extent_global = [0, z_length * 1000, x_length * 1000, 0]
+    zoom_z_min = z_start * dz * 1000
+    zoom_z_max = z_end * dz * 1000
+    zoom_x_min = x_start * dx * 1000
+    zoom_x_max = x_end * dx * 1000
+    extent_zoom = [zoom_z_min, zoom_z_max, zoom_x_max, zoom_x_min]
+
+    print(f"ROI Indices: X[{x_start}:{x_end}], Z[{z_start}:{z_end}]")
+
+    # ---------------- 入射波形 ----------------
+    wave4 = np.zeros(int(wn * steps_per_period), dtype=float)
+    for ms in range(len(wave4)):
+        wave4[ms] = (
+            (1 - np.cos(2 * np.pi * f_freq * dt * ms / wn)) / 2
+            * np.sin(2 * np.pi * f_freq * dt * ms)
+        )
+
+    # ---------------- 探触子設定 ----------------
+    probe_full = _cli_args.probe_full
+    probe_half_specimen = _cli_args.probe_half_specimen
+    if probe_full:
+        probe_d = z_length
+    elif probe_half_specimen:
+        probe_d = z_length * 0.5
+    else:
+        probe_d = _cli_args.probe_width_mm * 1e-3  # 探触子開口幅 [m]
+    sz = nz // 2
+    probe_cells = max(1, min(nz, int(round(probe_d / mesh_length))))
+    sz_l = sz - probe_cells // 2
+    sz_r = sz_l + probe_cells
+    if sz_l < 0:
+        sz_r -= sz_l
+        sz_l = 0
+    if sz_r > nz:
+        sz_l = max(0, sz_l - (sz_r - nz))
+        sz_r = nz
+
+    t_max_steps = int(1.5 * x_length / cl / dt)
+
+    return _cli_args
 
 # ===================================================
 
@@ -116,142 +208,10 @@ def make_base_name(f_pitch_m: float, f_depth_m: float, f_width_m: float, probe_d
     )
 
 
-# ---------------- 物理パラメータ ----------------
-x_length    = 0.02      # [m]
-z_length    = 0.04      # [m]
-mesh_length = 1.0e-5    # メッシュサイズ [m]
-
-nx = int(round(x_length / mesh_length))
-nz = int(round(z_length / mesh_length))
-dx = x_length / nx
-dz = z_length / nz
-
-rho = 7840
-E   = 206e9
-G   = 80e9
-V   = 0.27
-cl  = np.sqrt(E / rho * (1 - V) / (1 + V) / (1 - 2 * V))
-c11 = E * (1 - V) / (1 + V) / (1 - 2 * V)
-c13 = E * V       / (1 + V) / (1 - 2 * V)
-c55 = (c11 - c13) / 2
-dt  = dx / cl / np.sqrt(6)
-
-f_freq = 4.7e6
-
-# ---------------- 拡大領域 ROI ----------------
-roi_w_idx = int((zoom_width_mm  * 1e-3) / dz)
-roi_h_idx = int((zoom_height_mm * 1e-3) / dx)
-z_center  = nz // 2
-z_start   = max(0,  z_center - roi_w_idx // 2)
-z_end     = min(nz, z_center + roi_w_idx // 2)
-x_start   = max(0,  nx - roi_h_idx)
-x_end     = nx
-
-extent_global = [0, z_length * 1000, x_length * 1000, 0]
-zoom_z_min = z_start * dz * 1000
-zoom_z_max = z_end   * dz * 1000
-zoom_x_min = x_start * dx * 1000
-zoom_x_max = x_end   * dx * 1000
-extent_zoom = [zoom_z_min, zoom_z_max, zoom_x_max, zoom_x_min]
-
-print(f"ROI Indices: X[{x_start}:{x_end}], Z[{z_start}:{z_end}]")
+# 物理パラメータ（x_length, nx, rho, cl, c11, dt, …）は config.py から import 済み。
+# ここで再定義しないこと。FDTD 本体と値がずれる。
 
 
-# ---------------- 矩形溝マスク生成 ----------------
-def build_kukei_masks(nx, nz, f_width, f_pitch, f_depth, mesh_length):
-    """矩形溝の自由境界マスクを返す。project2 と同じ配置規則を使用。"""
-    mn_w   = max(1, int(round(f_width  / mesh_length)))
-    mn_p   = max(mn_w + 1, int(round(f_pitch  / mesh_length)))
-    mn_gap = mn_p - mn_w
-    mn_d   = max(1, int(round(f_depth  / mesh_length)))
-
-    if mn_w >= mn_p:
-        raise ValueError("f_width を f_pitch より小さくしてください。")
-
-    t13_isfree = np.ones((nx + 1, nz), dtype=np.float32)
-    t5_isfree  = np.ones((nx,     nz + 1), dtype=np.float32)
-
-    t13_isfree[0,  :] = 0.0
-    t13_isfree[nx, :] = 0.0
-    t5_isfree[:,   0] = 0.0
-    t5_isfree[:,  nz] = 0.0
-
-    cut_top   = max(0, nx - mn_d)
-    num_pitch = int(np.ceil(nz / mn_p))
-
-    for i in range(num_pitch):
-        groove_start = i * mn_p + mn_gap
-        groove_end   = min(i * mn_p + mn_p, nz)
-        if groove_start >= nz or groove_end <= groove_start:
-            continue
-        t5_isfree[cut_top:nx, groove_start:groove_end] = 0.0
-        t13_end = max(groove_start, groove_end - 1)
-        if t13_end > groove_start:
-            t13_isfree[cut_top:nx + 1, groove_start:t13_end] = 0.0
-
-    return t13_isfree, t5_isfree
-
-
-# ---------------- 自由境界近傍カウント（ベクトル化版） ----------------
-def around_free_vectorized(t13_isfree, t5_isfree, nx, nz):
-    ux_free_count = (
-        (t13_isfree[0:nx,   :] == 0).astype(np.float32)
-        + (t13_isfree[1:nx+1, :] == 0).astype(np.float32)
-        + (t5_isfree[:,  0:nz]  == 0).astype(np.float32)
-        + (t5_isfree[:, 1:nz+1] == 0).astype(np.float32)
-    )
-
-    uz_free_count = np.zeros((nx + 1, nz + 1), dtype=np.float32)
-    bd = np.zeros_like(uz_free_count, dtype=bool)
-    bd[0, :] = True; bd[nx, :] = True
-    bd[:, 0] = True; bd[:,  nz] = True
-    uz_free_count[bd] += 1.0
-
-    uz_free_count[:,   1:] += (t13_isfree == 0)
-    uz_free_count[:,  :nz] += (t13_isfree == 0)
-    uz_free_count[1:,   :] += (t5_isfree  == 0)
-    uz_free_count[:nx,  :] += (t5_isfree  == 0)
-
-    d1 = np.ones_like(uz_free_count, dtype=bool); d1[:,  1:] = (t13_isfree == 0)
-    d2 = np.ones_like(uz_free_count, dtype=bool); d2[:, :nz] = (t13_isfree == 0)
-    d3 = np.ones_like(uz_free_count, dtype=bool); d3[1:,  :] = (t5_isfree  == 0)
-    d4 = np.ones_like(uz_free_count, dtype=bool); d4[:nx, :] = (t5_isfree  == 0)
-    uz_free_count[d1 & d2 & d3 & d4] = 4.0
-
-    return ux_free_count, uz_free_count
-
-
-# ---------------- 入射波形 ----------------
-wn = 2.5
-n_period = (1.0 / f_freq) / dt
-wave4 = np.zeros(int(wn * n_period), dtype=float)
-for ms in range(len(wave4)):
-    wave4[ms] = (
-        (1 - np.cos(2 * np.pi * f_freq * dt * ms / wn)) / 2
-        * np.sin(2 * np.pi * f_freq * dt * ms)
-    )
-
-# ---------------- 探触子設定 ----------------
-probe_full = _cli_args.probe_full
-probe_half_specimen = _cli_args.probe_half_specimen
-if probe_full:
-    probe_d = z_length
-elif probe_half_specimen:
-    probe_d = z_length * 0.5
-else:
-    probe_d = _cli_args.probe_width_mm * 1e-3  # 探触子開口幅 [m]
-sz = nz // 2
-probe_cells = max(1, min(nz, int(round(probe_d / mesh_length))))
-sz_l = sz - probe_cells // 2
-sz_r = sz_l + probe_cells
-if sz_l < 0:
-    sz_r -= sz_l
-    sz_l = 0
-if sz_r > nz:
-    sz_l = max(0, sz_l - (sz_r - nz))
-    sz_r = nz
-
-t_max_steps = int(1.5 * x_length / cl / dt)
 
 
 # =======================================================================
@@ -562,7 +522,9 @@ class IntegratedViewer:
 # =======================================================================
 #               Main Simulation
 # =======================================================================
-def main():
+def main(argv=None):
+    configure(argv)
+
     base_name = make_base_name(f_pitch, f_depth, f_width, probe_d, probe_full, probe_half_specimen)
     print(f"pitch={f_pitch*1e3:.3f}mm  depth={f_depth*1e3:.3f}mm  width={f_width*1e3:.3f}mm")
     print(f"save_interval={save_interval}  global_downsample={global_downsample}")
@@ -572,13 +534,17 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
 
     # --- マスク生成 ---
-    t13_isfree_np, t5_isfree_np = build_kukei_masks(nx, nz, f_width, f_pitch, f_depth, mesh_length)
-    ux_free_np,   uz_free_np   = around_free_vectorized(t13_isfree_np, t5_isfree_np, nx, nz)
+    # FDTD 本体 (UT_FlawVariation_Sim.py) とまったく同じ関数を使う。
+    # ここを独自実装に戻すと、描いた形状と計算した形状がずれる。
+    t13_isfree_np, t5_isfree_np = geometry.isfree(nx, nz, f_width, f_pitch, f_depth, mesh_length)
+    ux_free_np,   uz_free_np   = geometry.around_free(t13_isfree_np, t5_isfree_np, nx, nz)
 
-    T13_isfree  = cp.asarray(t13_isfree_np)
-    T5_isfree   = cp.asarray(t5_isfree_np)
-    Ux_free_cnt = cp.asarray(ux_free_np)
-    Uz_free_cnt = cp.asarray(uz_free_np)
+    # 場の配列は float32 なので、マスクも float32 で GPU に載せる
+    # （geometry は FDTD 本体に合わせて float64 を返す。値は 0/1 なので落ちない）
+    T13_isfree  = cp.asarray(t13_isfree_np, dtype=cp.float32)
+    T5_isfree   = cp.asarray(t5_isfree_np,  dtype=cp.float32)
+    Ux_free_cnt = cp.asarray(ux_free_np,    dtype=cp.float32)
+    Uz_free_cnt = cp.asarray(uz_free_np,    dtype=cp.float32)
 
     # --- FDTD 配列確保 ---
     T1 = cp.zeros((nx + 1, nz),     dtype=cp.float32)
@@ -681,9 +647,9 @@ def main():
     #   gap_left_wall  = pitch_start - 1
     #   gap_right_wall = groove_start - 1 = pitch_start + mn_gap - 1
     #   gap_center     = (gap_left_wall + gap_right_wall) / 2
-    mn_p_val  = int(round(f_pitch / mesh_length))
-    mn_w_val  = int(round(f_width  / mesh_length))
-    mn_gap_val = mn_p_val - mn_w_val
+    # マスクと同じ離散化を使う（geometry 側と数え方を揃えないと中心がずれる）
+    _, mn_p_val, mn_gap_val, _ = geometry.flaw_mesh_counts(
+        f_width, f_pitch, f_depth, mesh_length)
     probe_center_mm_val = sz * dz * 1000
     _pitch_i_near = sz // mn_p_val
     _gc_candidates = []

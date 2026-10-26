@@ -1,14 +1,35 @@
-import pandas as pd
-import numpy as np
-import os
-import glob
-import re
-import sys
+"""
+extract_features.py — シミュレーション波形から特徴量を抽出して CSV にまとめる
 
-# sourse_new_2のインポート（パスの解決）
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-import sourse_new_2 as sn2
+入力は既定で config.SIM_OUT_DIR（lab/tmp_output/sim）。
+別の場所を見たいときは --input-dir で指定する。
+"""
+
+import argparse
+import glob
+import os
+import re
+
+import numpy as np
+import pandas as pd
+
+from config import SIM_OUT_DIR, TMP_OUTPUT_DIR, dt as SIM_DT, left, right, search_offset
 from naming import SIM_SHAPE
+from signal_utils import kiritori2, make_fftdata
+
+
+def parse_cli_args(argv=None):
+    parser = argparse.ArgumentParser(
+        description="シミュレーション波形 CSV から特徴量を抽出する。")
+    parser.add_argument("--input-dir", default=SIM_OUT_DIR,
+                        help="波形 CSV のあるフォルダ（既定: lab/tmp_output/sim）")
+    parser.add_argument("--output", default=os.path.join(TMP_OUTPUT_DIR,
+                                                         "simulation_features.csv"),
+                        help="特徴量 CSV の出力先")
+    parser.add_argument("--offset", type=int, default=search_offset,
+                        help="波形の先頭スキップ点数（入射パルスを避ける）")
+    return parser.parse_args(argv)
+
 
 def extract_params(filename):
     """
@@ -37,21 +58,21 @@ def calculate_features(waveform, dt):
     p2p = np.max(waveform) - np.min(waveform)
     energy = np.sum(waveform**2)
     rms = np.sqrt(np.mean(waveform**2))
-    
-    # FFT (sourse_new_2 の定数・関数を使用)
+
+    # FFT (signal_utils の関数を使用)
     # ここでは生のシミュレーション時間ステップ dt を使用する想定
     # もし比較のために実験サンプリングレートに合わせるなら補間が必要だが、
     # 単純な特徴抽出なら生データでも可。
-    mag, freq = sn2.make_fftdata(waveform, dt)
-    
+    mag, freq = make_fftdata(waveform, dt)
+
     # 2MHz - 10MHz の範囲で特徴を抽出
     mask = (freq >= 2e6) & (freq <= 10e6)
     mag_band = mag[mask]
     freq_band = freq[mask]
-    
+
     peak_freq = freq_band[np.argmax(mag_band)]
     centroid_freq = np.sum(freq_band * mag_band) / np.sum(mag_band)
-    
+
     # -6dB 帯域幅の簡易計算
     peak_mag = np.max(mag_band)
     threshold = peak_mag / 2.0
@@ -60,7 +81,7 @@ def calculate_features(waveform, dt):
         bandwidth_6dB = np.max(within_threshold) - np.min(within_threshold)
     else:
         bandwidth_6dB = 0
-        
+
     return {
         'max_amplitude': max_amp,
         'peak_to_peak': p2p,
@@ -71,10 +92,11 @@ def calculate_features(waveform, dt):
         'bandwidth_6dB': bandwidth_6dB
     }
 
-def main():
-    input_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tmp')
-    output_file = 'simulation_features.csv'
-    
+def main(argv=None):
+    args = parse_cli_args(argv)
+    input_dir = args.input_dir
+    output_file = args.output
+
     # 命名規則は AGENTS.md 7章。<shape>_cupy_pitch..._width..._depth....csv
     csv_files = glob.glob(os.path.join(input_dir, f'{SIM_SHAPE.lower()}_cupy_*.csv'))
     if not csv_files:
@@ -82,31 +104,30 @@ def main():
         return
 
     results = []
-    
-    # シミュレーションのdtを取得
-    # sourse_new_2.dt は dx / cl / sqrt(6)
-    sim_dt = sn2.dt
+
+    # シミュレーションの dt は config.dt（= dx / cl / sqrt(6)）
+    sim_dt = SIM_DT
+    print(f"Input dir: {input_dir}")
     print(f"Using simulation dt: {sim_dt}")
 
     for csv_path in sorted(csv_files):
         filename = os.path.basename(csv_path)
         print(f"Processing {filename}...")
-        
+
         try:
             pitch, width, depth = extract_params(filename)
             df = pd.read_csv(csv_path, header=None)
             waveform = df.iloc[:, 0].values
-            
-            # 初期パルス等を避けるためのオフセット（sourse_new_2のsim_a1付近を参考に）
-            # search_offset = 8000 (plot_simdata_compare.pyより)
-            offset = 8000
+
+            # 初期パルス等を避けるためのオフセット（config.search_offset）
+            offset = args.offset
             if len(waveform) > offset:
-                sliced_waveform = sn2.kiritori2(waveform[offset:], sn2.left, sn2.right)
+                sliced_waveform = kiritori2(waveform[offset:], left, right)
             else:
                 sliced_waveform = waveform
-            
+
             features = calculate_features(sliced_waveform, sim_dt)
-            
+
             row = {
                 'filename': filename,
                 'pitch': pitch,
@@ -115,11 +136,12 @@ def main():
             }
             row.update(features)
             results.append(row)
-            
+
         except Exception as e:
             print(f"Error processing {filename}: {e}")
 
     if results:
+        os.makedirs(os.path.dirname(os.path.abspath(output_file)), exist_ok=True)
         df_results = pd.DataFrame(results)
         df_results.to_csv(output_file, index=False)
         print(f"\nFeature extraction completed. Results saved to {output_file}")
