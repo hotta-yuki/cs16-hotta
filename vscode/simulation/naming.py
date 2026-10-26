@@ -70,6 +70,23 @@ def sim3d_csv_name(shape, pitch_m, depth_m):
             f"_depth{m_code(depth_m)}.csv")
 
 
+def smooth_csv_name(pitch_m=1.25e-3):
+    """平滑面（傷なし）のシミュレーション出力 CSV のファイル名を作る。
+
+        smooth_cupy_pitch<p>_depth0.csv
+
+    例) smooth_csv_name(2.00e-3) -> 'smooth_cupy_pitch200_depth0.csv'
+
+    width を名前に入れないのは ichikawa san 側の2D命名に合わせたため
+    （`sourse_new_2.py` も `Smooth/smooth_cupy_pitch125_depth0.csv` を探す）。
+
+    **pitch は履歴上のラベルでしかない。** `isfree()` は depth=0 だと
+    mn_d=0 になって溝を1つも彫らないので、pitch と width を何にしても
+    まったく同じ平らな底面になる（検証済み）。平滑面は1本計算すれば足りる。
+    """
+    return f"smooth_cupy_pitch{m_code(pitch_m)}_depth0.csv"
+
+
 def ani_npz_name(prefix, probe_d_m, pitch_m, width_m, depth_m):
     """応力場アニメーション NPZ のファイル名を作る。
 

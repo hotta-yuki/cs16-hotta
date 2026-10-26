@@ -20,7 +20,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, os.path.join(REPO_ROOT, "vscode", "simulation"))
 
-from naming import SIM_SHAPE, sim_csv_name
+from naming import SIM_SHAPE, sim_csv_name, smooth_csv_name
 
 CHECK_DIRS = [
     os.path.join(REPO_ROOT, "tmp_output", "sim"),
@@ -30,11 +30,17 @@ CHECK_DIRS = [
 
 # 実行順は design.csv の phase 列（order_design.py が付ける）。安い確認を先に
 # 済ませ、まず train 60 点 + test 20 点まで到達してから残りに入る（README 6.・8.）。
-DEFAULT_ORDER = ["isorms", "specimen", "train", "test"]
+DEFAULT_ORDER = ["smooth", "isorms", "specimen", "train", "test"]
 
 
-def already_done(p_m, w_m, d_m, extra_dirs=()):
-    fn = sim_csv_name(SIM_SHAPE, p_m, w_m, d_m)
+def out_name(row, p_m, w_m, d_m):
+    """その条件の出力ファイル名。平滑面だけ別の命名（width を持たない）。"""
+    if row.get("shape", SIM_SHAPE) == "Smooth":
+        return smooth_csv_name(p_m)
+    return sim_csv_name(SIM_SHAPE, p_m, w_m, d_m)
+
+
+def already_done(fn, extra_dirs=()):
     for d in list(extra_dirs) + CHECK_DIRS:
         path = os.path.join(d, fn)
         if os.path.exists(path):
@@ -84,16 +90,21 @@ def main():
         p_m, w_m, d_m = float(r["pitch_m"]), float(r["width_m"]), float(r["depth_m"])
         tag = (f"[{i}/{len(todo)}] ph{r['phase']} {r['set']:8s} "
                f"p={r['pitch_mm']} w={r['width_mm']} d={r['depth_mm']}")
-        hit = already_done(p_m, w_m, d_m, [args.out_dir])
+        fn = out_name(r, p_m, w_m, d_m)
+        hit = already_done(fn, [args.out_dir])
         if hit:
             print(f"{tag} skip ({os.path.basename(os.path.dirname(hit))})")
             continue
         if args.dry_run:
-            print(f"{tag} RUN -> {sim_csv_name(SIM_SHAPE, p_m, w_m, d_m)}")
+            print(f"{tag} RUN -> {fn}")
             continue
         print(f"{tag} running...", flush=True)
-        sim.run_simulation(f_width=w_m, f_pitch=p_m, f_depth=d_m,
-                           output_dir=args.out_dir)
+        res = sim.run_simulation(f_width=w_m, f_pitch=p_m, f_depth=d_m,
+                                 output_dir=args.out_dir)
+        # run_simulation は SIM_SHAPE（Kukei）の名前で書き出すので、平滑面は
+        # 命名規則（AGENTS.md 7章）に合わせて付け替える
+        if os.path.basename(res["csv_path"]) != fn:
+            os.replace(res["csv_path"], os.path.join(args.out_dir, fn))
         ran += 1
         el = time.time() - t0
         print(f"{tag} done ({el / ran / 60:.1f} 分/件、経過 {el / 3600:.1f} 時間)", flush=True)
