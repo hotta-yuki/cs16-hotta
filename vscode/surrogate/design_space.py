@@ -16,6 +16,20 @@
 ここではソルバー側を書き換えず、**ソルバーが実際に作る形状のほうを正とする**。
 `cells_to_m()` が「切り捨てても狙ったセル数になる [m] 値」を返し、教師ラベルには
 セル数 × mesh_length を使う。既存データもこの実現値で振り直せば再計算は要らない。
+
+**未解決**: ソルバーは溝の配置に `mesh_length`（1.0e-5）を使う一方、波動の更新には
+`dx = x_length / nx`・`dz = z_length / nz` を使う。この nx・nz 自体が同じ切り捨ての
+影響を受けていて
+
+    nx = int(0.02 / 1.0e-5) = int(1999.9999999999998) = 1999
+    nz = int(0.04 / 1.0e-5) = int(3999.9999999999995) = 3999
+
+となるため、dx = 1.0005e-5、dz = 1.00025e-5 で `mesh_length` と一致しない。つまり
+1 セルの実寸は x 方向で +0.05%、z 方向で +0.025% 大きく、`realized_mm()` が返す値は
+真の物理寸法より同じ割合だけ小さい。全条件に共通の系統的なスケール誤差なので
+サロゲートの学習には実害が無く（ラベルが一様に定数倍されるだけ）、1 セルぶんの
+誤差（深さ 0.15 mm で 6.7%）より 2 桁小さいが、実験と絶対寸法で突き合わせるときは
+効く。板厚そのものは nx * dx = 0.02 m ちょうどなので飛行時間はずれない。
 """
 
 import math
@@ -34,12 +48,29 @@ BOX_MM = {
 BOX_CELLS = {k: (round(lo / MESH_MM), round(hi / MESH_MM)) for k, (lo, hi) in BOX_MM.items()}
 
 
+# nextafter で持ち上げる回数の上限。実測では全 330 条件で最大 1 回なので、
+# ここに到達するのは前提が崩れたとき（MESH_M を変えた等）。黙って回り続けるより
+# 落としたほうがよい。
+_MAX_NUDGE = 8
+
+
 def cells_to_m(cells):
-    """切り捨て離散化を通しても `cells` になる [m] 値を返す。"""
+    """切り捨て離散化を通しても `cells` になる [m] 値を返す。
+
+    1 ulp は p=1.5 mm のとき 2.17e-19 m（メッシュ長の 2.2e-14 倍）で、持ち上げる
+    のは実測で高々 1 回。形状にも物理量にも影響しない桁である。
+    """
     v = cells * MESH_M
-    while int(v / MESH_M) < cells:
+    for _ in range(_MAX_NUDGE):
+        got = int(v / MESH_M)
+        if got == cells:
+            return v
+        if got > cells:
+            # cells * MESH_M を MESH_M で割って 1 以上ずれることは無いはずなので、
+            # ここに来たら前提が崩れている
+            raise ValueError(f"切り上がった: {cells=} got={got}")
         v = math.nextafter(v, math.inf)
-    return v
+    raise ValueError(f"{_MAX_NUDGE} 回持ち上げても合わない: {cells=}")
 
 
 def realized_mm(cells):
