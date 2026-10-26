@@ -115,7 +115,8 @@ def run_simulation(f_width, f_pitch, f_depth,
                    snapshot_downsample=8,
                    snapshot_components=("T1", "T3", "T5"),
                    snapshot_zoom_mm=None,
-                   snapshot_dir="tmp_output/field"):
+                   snapshot_dir="tmp_output/field",
+                   output_dir="tmp_output/sim"):
     """FDTD を1条件走らせ、探触子位置の波形 CSV を書き出す。
 
     引数はすべて [m]。snapshot_* を使うと、同じ実行から物質中の応力場も保存する。
@@ -139,6 +140,10 @@ def run_simulation(f_width, f_pitch, f_depth,
         溝まわりのモード変換を見るとき用。None（既定）で全体図のみ。
     snapshot_dir : str
         NPZ の保存先。相対パスなのでリポジトリルートから実行すること。
+    output_dir : str
+        波形 CSV の保存先。既定は従来どおり "tmp_output/sim"。サロゲート用の
+        掃引など、別の掃引の出力を混ぜたくないときに変える
+        （vscode/surrogate/run_design.py が使う）。
 
     Returns
     -------
@@ -296,9 +301,7 @@ def run_simulation(f_width, f_pitch, f_depth,
     wave_cpu = cp.asnumpy(wave)
     
     # 保存先ディレクトリの作成
-    output_dir = "tmp_output/sim"
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
 
     name = os.path.join(output_dir, sim_csv_name(SIM_SHAPE, f_pitch, f_width, f_depth))
     np.savetxt(name, wave_cpu, delimiter=',')

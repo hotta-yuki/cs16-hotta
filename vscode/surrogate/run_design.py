@@ -32,9 +32,9 @@ CHECK_DIRS = [
 DEFAULT_ORDER = ["isorms", "specimen", "train", "test"]
 
 
-def already_done(p_m, w_m, d_m):
+def already_done(p_m, w_m, d_m, extra_dirs=()):
     fn = sim_csv_name(SIM_SHAPE, p_m, w_m, d_m)
-    for d in CHECK_DIRS:
+    for d in list(extra_dirs) + CHECK_DIRS:
         path = os.path.join(d, fn)
         if os.path.exists(path):
             return path
@@ -48,6 +48,8 @@ def main():
                     help="回す集合。既定は " + " ".join(DEFAULT_ORDER))
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--limit", type=int, default=0, help="先頭 N 件だけ回す")
+    ap.add_argument("--out-dir", default=os.path.join(HERE, "tmp_output"),
+                    help="波形 CSV の出力先。既定は vscode/surrogate/tmp_output")
     args = ap.parse_args()
 
     with open(args.design, encoding="utf-8") as f:
@@ -59,6 +61,8 @@ def main():
     if args.limit:
         todo = todo[:args.limit]
 
+    os.makedirs(args.out_dir, exist_ok=True)
+    print(f"出力先: {args.out_dir}")
     if not args.dry_run:
         import UT_FlawVariation_Sim as sim
 
@@ -69,7 +73,7 @@ def main():
         # 狙ったセル数になる」よう ulp 単位で調整済みなので、丸め直さないこと。
         p_m, w_m, d_m = float(r["pitch_m"]), float(r["width_m"]), float(r["depth_m"])
         tag = f"[{i}/{len(todo)}] {r['set']:8s} p={r['pitch_mm']} w={r['width_mm']} d={r['depth_mm']}"
-        hit = already_done(p_m, w_m, d_m)
+        hit = already_done(p_m, w_m, d_m, [args.out_dir])
         if hit:
             print(f"{tag} skip ({os.path.basename(os.path.dirname(hit))})")
             continue
@@ -77,7 +81,8 @@ def main():
             print(f"{tag} RUN -> {sim_csv_name(SIM_SHAPE, p_m, w_m, d_m)}")
             continue
         print(f"{tag} running...", flush=True)
-        sim.run_simulation(f_width=w_m, f_pitch=p_m, f_depth=d_m)
+        sim.run_simulation(f_width=w_m, f_pitch=p_m, f_depth=d_m,
+                           output_dir=args.out_dir)
         ran += 1
         el = time.time() - t0
         print(f"{tag} done ({el / ran / 60:.1f} 分/件、経過 {el / 3600:.1f} 時間)", flush=True)
