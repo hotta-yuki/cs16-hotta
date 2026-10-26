@@ -141,9 +141,10 @@ def markdown(out_dir):
     out.append("````")
     out.append("")
     out.append("<callout icon=\"⚠️\" color=\"yellow_bg\">")
-    out.append("Claude Code のセッションから 30 分ごとに貼り直している"
-               "（cron ジョブ 57977344）。**セッションを閉じると更新も止まる。**"
-               "上のバナーが 🔴 なら掃引自体が止まっている。")
+    # cron ジョブ ID はセッションごとに変わるので書かない
+    out.append("Claude Code のセッションから 30 分ごとに貼り直している。"
+               "**セッションを閉じると更新も止まる**（掃引自体も一緒に落ちる）。"
+               "上のバナーが 🔴 なら掃引が止まっている。")
     out.append("</callout>")
     return chr(10).join(out)
 
