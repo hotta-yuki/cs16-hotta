@@ -130,7 +130,23 @@ def isorms_set():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=os.path.join(HERE, "design.csv"))
+    ap.add_argument("--force", action="store_true",
+                    help="既存の design.csv を上書きする（下の警告を読んでから）")
     args = ap.parse_args()
+
+    # 掃引を始めたあとに再実行すると設計が壊れる。
+    #   1. `reuse` は「箱の中の計算済み条件」を拾うので、掃引で計算した
+    #      train / test / isorms の点まで reuse に化ける。その結果 build() が
+    #      別の 180 点を新しく振り、**計算済みのテスト点が学習側に混ざる**。
+    #   2. order_design.py が付けた order / phase 列、平滑面の行、shape 列が消える。
+    # 設計を作り直すなら design.csv を退避し、--force を付け、そのあと必ず
+    # order_design.py を実行し直すこと。
+    if os.path.exists(args.out) and not args.force:
+        print(f"中止: {args.out} が既にある。")
+        print("  掃引の途中で再生成すると、計算済みのテスト点が学習側に混ざる。")
+        print("  本当に作り直すなら design.csv を退避してから --force を付ける。")
+        print("  そのあと order_design.py の実行を忘れないこと。")
+        return
 
     done = existing_conditions()
     specimens = load_specimens()
