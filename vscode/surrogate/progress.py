@@ -126,6 +126,17 @@ def markdown(out_dir):
         out.append(f"次に回る条件: `{n['set']}` pitch {n['pitch_mm']} mm / "
                    f"width {n['width_mm']} mm / depth {n['depth_mm']} mm")
         out.append("")
+    # phase 1+2 が揃った時点が最初の節目（学習曲線の 1 点目）。見落とさないよう目立たせる
+    ph = {p["phase"]: p for p in st["phases"]}
+    if ph.get(1, {}).get("left") == 0 and ph.get(2, {}).get("left") == 0:
+        out.append('<callout icon="🎯" color="blue_bg">')
+        out.append("**train 60 点 + test 20 点が揃った。** 残りの計算を待たずに "
+                   "README 5.（特徴量化と PCA）以降へ進める。学習曲線の 1 点目。")
+        out.append("")
+        out.append("学習に使えるのは train 60 点。reuse 53 点は depth 0.10–0.20 の格子なので、"
+                   "混ぜずに別立てで評価したほうが切り分けやすい。")
+        out.append("</callout>")
+        out.append("")
     out.append("## 見かた")
     out.append("")
     out.append("- **phase 1 + 2 が終われば** train 60 点 + test 20 点が揃い、"
