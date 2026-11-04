@@ -6,15 +6,13 @@
 
 手順（Notion「研究室サロゲートモデル」Step 5 の式 D(f;θ) = F[w(t) d(t+t0;θ)] どおり）
 ----
-1. main wave（底面エコー）のピーク時刻 t0 で時刻を揃える。t0 は包絡線（ヒルベルト変換）
-   の最大で取り、放物線補間で刻み以下まで詰める。|d| の最大で取ると、きず形状で
-   正負どちらの山が最大かが入れ替わり t0 が半周期跳ぶ
-2. 全データ共通の矩形窓 [t0 - T_PRE, t0 + T_POST) で切り出す。窓幅は固定。
-   前側は実験記録の制約（記録開始 5.41 us、t0 約 6.16-6.20 us）で 0.7 us まで、
-   後側は P 下降 → S 上昇のモード変換波（平滑面で約 9.8 us = t0 + 2.6 us）より前で閉じる
+1-2. 切り出しは sourse_new_2.kiritori2 と同じ（関数をそのまま呼ぶ）。
+   - シミュレーションは interpolate_sim_one で実験の刻み exp_dt = 0.5 ns に補間する
+   - 先頭 SIM_SKIP = 8000 点（4.0 us、送信パルス）を飛ばし、生波形の正の最大を
+     ピーク t0 とする（plot_simdata.py・plotting.py と同じ）
+   - t0 の左 left = 1024 点（0.512 us）、右 right = 3072 点（1.536 us）を矩形窓で取る
 3. 固定周波数グリッド上で DFT して複素スペクトル D(f) を得る（ゼロ埋めと同じ効果）。
-   時刻原点は t0 なので、刻み以下のずれも位相に正しく入る。グリッドを dt から
-   切り離しておけば、サンプリング間隔の違う実験波形にも同じ式が使える
+   make_fftdata は振幅しか返さないので使わない。時刻原点は t0
 4. 平滑面（design.csv の smooth 行）の D_smooth(f) で割り、R(f) = D / D_smooth とする。
    送信パルスと伝搬の共通部分が消え、きず面の反射特性だけが残る
 5. 特徴量は [Re R, Im R] を並べた実ベクトル。位相を角度で持つと ±π の巻き戻りで
@@ -30,15 +28,17 @@
     pca_cumulative.png
     pca_loadings.png  PC1-4 の実部・虚部
     pca_scores.png    PC1-PC2 散布図をパラメータで色分け
+    window.png        波形全体と切り出し窓
 """
 
 import argparse
+import contextlib
 import csv
+import io
 import os
 import sys
 
 import numpy as np
-from scipy.signal import hilbert
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -54,21 +54,14 @@ try:
 except ImportError:
     pass
 
+import sourse_new_2 as sn2
 from run_design import out_name
 
-# シミュレーションの時間刻み [s]。analyze_identifiability.py と同じ式
-_RHO, _E, _V = 7840, 206e9, 0.27
-_CL = np.sqrt(_E / _RHO * (1 - _V) / (1 + _V) / (1 - 2 * _V))
-SIM_DT = 1.0e-5 / _CL / np.sqrt(6)
-
-# ピーク t0 基準の矩形窓 [s]
-T_PRE = 0.7e-6
-T_POST = 2.0e-6
-# t0 を探し始める時刻 [s]。シミュレーションは先頭に送信パルスがあるので飛ばす
-# （底面エコーは約 7.2 us）。実験の記録は 5.41 us 始まりなので影響しない
-T_SEARCH = 3.0e-6
-PEAK_FRAC = 0.5      # main wave とみなす包絡線の閾値（最大に対する比）
-ENV_SMOOTH = 0.1e-6  # 包絡線の移動平均の幅 [s]（5 MHz の半周期）
+EXP_DT = sn2.exp_dt          # 0.5 ns。シミュレーションもこの刻みに補間してから切る
+LEFT, RIGHT = sn2.left, sn2.right   # kiritori2 のピーク左右の点数（1024 / 3072）
+# 補間後の先頭を飛ばす点数（4.0 us）。plot_simdata.py の search_offset、
+# project3 の SIM_SKIP と同じ。実験の記録は 5.41 us 始まりなので 0 点になる
+SIM_SKIP_T = 8000 * EXP_DT
 
 # 解析帯域 [Hz]。平滑面スペクトルの -20 dB 帯は 1.75-7.85 MHz（ピーク 4.75 MHz）。
 # 分母が小さい端を避けて内側に取る
@@ -78,8 +71,8 @@ DF = 0.05e6
 
 PC_TARGET = 0.99
 
-# window.png に載せる例。包絡線が 2 山に割れる条件と、実験波形 1 本（ex_index.csv の先頭）
-WINDOW_HARD_CASE = "kukei_cupy_pitch114_width48_depth30.csv"
+# window.png に載せる例。後続波が底面エコーより大きい条件と、実験波形 1 本（ex_index.csv の先頭）
+WINDOW_HARD_CASE = "kukei_cupy_pitch114_width48_depth30.csv"   # 後続波が底面エコーより大きい
 EXP_SAMPLE = os.path.join(HERE, "..", "simulation", "data", "ex_data", "scope_0.csv")
 
 # 色: 系列 1・2 と単色の連続ランプ（dataviz 既定パレット、blue 250 -> 700）
@@ -95,48 +88,28 @@ def freq_grid():
     return np.arange(F_MIN, F_MAX + DF / 2, DF)
 
 
-def peak_time(t, w):
-    """main wave の包絡線ピーク時刻 [s]。放物線補間で刻み以下まで求める。
-
-    全体の最大ではなく「最大の PEAK_FRAC を初めて超えた後の最初の山」を取る。
-    溝が深く山が狭い条件（p=1.14, w=0.48, d=0.30 mm）では、後続の波のほうが
-    底面エコーより大きく、最大を取ると t0 が 0.6 us 遅れる。
-    """
-    env = np.abs(hilbert(w))
-    # 実験の包絡線はノイズで細かく揺れ、閾値付近で区間が途切れる。移動平均で均す
-    n = max(1, int(round(ENV_SMOOTH / (t[1] - t[0]))))
-    env = np.convolve(env, np.ones(n) / n, mode="same")
-    env[t < T_SEARCH] = 0.0
-    # 閾値を超えている最初の連続区間の中の最大。「最初の極大」にすると、
-    # 実験波形では立ち上がり途中のノイズの揺れを拾い t0 が 0.13 us 早まる
-    above = env >= PEAK_FRAC * env.max()
-    s = int(np.argmax(above))
-    e = s + int(np.argmin(above[s:])) if not above[s:].all() else len(env)
-    k = s + int(np.argmax(env[s:e]))
-    if 0 < k < len(env) - 1:
-        a, b, c = env[k - 1], env[k], env[k + 1]
-        den = a - 2 * b + c
-        if den != 0:
-            return t[k] + 0.5 * (a - c) / den * (t[k + 1] - t[k])
-    return t[k]
+def cut(t, w):
+    """kiritori2 で切り出す。返り値は (t0 [s], 切り出し波形, t0 基準の時刻 [s])。"""
+    off = int(np.searchsorted(t, SIM_SKIP_T))
+    k = off + int(np.nanargmax(w[off:]))    # kiritori2 内部と同じピーク
+    with contextlib.redirect_stdout(io.StringIO()):   # kiritori2 は毎回 shape を print する
+        seg = sn2.kiritori2(w[off:], LEFT, RIGHT)
+    tau = (np.arange(len(seg)) - LEFT) * EXP_DT
+    return t[k], seg, tau
 
 
 def spectrum(t, w, freq):
-    """t0 基準の矩形窓・固定周波数グリッドでの複素スペクトル。時刻原点は t0。"""
-    t0 = peak_time(t, w)
-    sel = (t >= t0 - T_PRE) & (t < t0 + T_POST)
-    if t[sel][0] - (t0 - T_PRE) > 2 * (t[1] - t[0]) or (t0 + T_POST) - t[sel][-1] > 2 * (t[1] - t[0]):
-        raise ValueError(f"窓が記録からはみ出す: t0 = {t0*1e6:.3f} us, 記録 {t[0]*1e6:.3f}-{t[-1]*1e6:.3f} us")
-    dt = t[1] - t[0]
-    E = np.exp(-2j * np.pi * np.outer(freq, t[sel] - t0))
-    return E @ w[sel] * dt
+    """kiritori2 で切り出した波形の、固定周波数グリッドでの複素スペクトル。時刻原点は t0。"""
+    _, seg, tau = cut(t, w)
+    E = np.exp(-2j * np.pi * np.outer(freq, tau))
+    return E @ seg * EXP_DT
 
 
 def load_wave(path):
-    """シミュレーション CSV を読み、(時刻 [s], 波形) を返す。"""
+    """シミュレーション CSV を読み、exp_dt 刻みに補間して (時刻 [s], 波形) を返す。"""
     w = np.loadtxt(path, delimiter=",")
-    w = w if w.ndim == 1 else w[:, 0]
-    return np.arange(len(w)) * SIM_DT, w
+    w = sn2.interpolate_sim_one(w if w.ndim == 1 else w[:, 0])
+    return np.arange(len(w)) * EXP_DT, w
 
 
 def load_scope(path):
@@ -189,7 +162,7 @@ def plot_spectra(out, freq, H, P):
     axs[1, 0].set_ylabel("arg R [rad]")
     for ax in axs.flat:
         _style(ax)
-    fig.suptitle(f"平滑面で正規化したスペクトル R（{len(H)} 件、矩形窓 t0 -{T_PRE*1e6:.1f} / +{T_POST*1e6:.1f} us）")
+    fig.suptitle(f"平滑面で正規化したスペクトル R（{len(H)} 件、kiritori2 窓 t0 -{LEFT*EXP_DT*1e6:.3f} / +{RIGHT*EXP_DT*1e6:.3f} us）")
     fig.savefig(os.path.join(out, "spectra.png"), dpi=150, bbox_inches="tight")
     plt.close(fig)
 
@@ -244,30 +217,34 @@ def plot_scores(out, scores, P, ratio):
 
 
 def plot_window(out, examples):
-    """波形全体と切り出し窓。左が全体、右が窓の付近の拡大（包絡線つき）。
+    """波形全体と kiritori2 の切り出し窓。左が全体、右が窓の付近の拡大。
 
+    右には kiritori2 が返した波形そのものを重ねる（窓の位置がずれていないことの確認）。
     examples は (見出し, 時刻 [s], 波形) のリスト。
     """
     fig, axs = plt.subplots(len(examples), 2, figsize=(15, 2.8 * len(examples)),
                             gridspec_kw={"width_ratios": [3, 2]}, layout="constrained")
     for row, (title, t, w) in zip(axs, examples):
-        t0 = peak_time(t, w)
-        env = np.abs(hilbert(w))
-        lo, hi = t0 - T_PRE, t0 + T_POST
+        t0, seg, tau = cut(t, w)
+        lo, hi = t0 - LEFT * EXP_DT, t0 + RIGHT * EXP_DT
         for ax in row:
             ax.axvspan(lo * 1e6, hi * 1e6, color=GRID, alpha=0.6, linewidth=0)
             ax.axvline(t0 * 1e6, color="#52514e", linestyle="--", linewidth=1)
-            ax.plot(t * 1e6, w, color=C_RE, linewidth=0.8)
+            ax.plot(t * 1e6, w, color=C_RE, linewidth=0.8, label="全体")
             _style(ax)
-        z = (t >= t0 - 1.5e-6) & (t <= t0 + 3.5e-6)
-        row[1].plot(t[z] * 1e6, env[z], color=C_IM, linewidth=1.5, label="包絡線")
-        row[1].set_xlim((t0 - 1.5e-6) * 1e6, (t0 + 3.5e-6) * 1e6)
-        sel = (t >= lo) & (t < hi)
+        if t[0] < SIM_SKIP_T:
+            row[0].axvspan(t[0] * 1e6, SIM_SKIP_T * 1e6, facecolor="none", hatch="//",
+                           edgecolor=GRID, linewidth=0)
+            row[0].text(SIM_SKIP_T * 1e6, row[0].get_ylim()[1] * 0.9, " ← 先頭 8000 点は\n    ピーク探索から除外",
+                        va="top", ha="left", color="#52514e", fontsize=9)
+        row[1].plot((t0 + tau) * 1e6, seg, color=C_IM, linewidth=1.2, label="kiritori2 の出力")
+        z = (t >= t0 - 1.5e-6) & (t <= t0 + 3.0e-6)
+        row[1].set_xlim((t0 - 1.5e-6) * 1e6, (t0 + 3.0e-6) * 1e6)
         top = 1.15 * np.abs(w[z]).max()
         row[1].set_ylim(-top, top)
         row[0].set_title(f"{title}　全体（灰色が切り出し窓 {lo*1e6:.2f}-{hi*1e6:.2f} us）", loc="left")
-        row[1].set_title(f"窓の付近　t0 = {t0*1e6:.3f} us（破線）", loc="left")
-        row[1].text(hi * 1e6, top * 0.9, f" 窓外は捨てる\n （窓内 {sel.sum()} 点）",
+        row[1].set_title(f"窓の付近　t0 = {t0*1e6:.3f} us（破線、正の最大）", loc="left")
+        row[1].text(hi * 1e6, top * 0.9, f" 窓外は捨てる\n （窓内 {len(seg)} 点）",
                     va="top", ha="left", color="#52514e", fontsize=9)
         row[0].set_ylabel("振幅")
     axs[0, 1].legend(frameon=False, loc="lower right")
@@ -330,7 +307,7 @@ def main():
              params_mm=P, param_names=np.array([k for k, _ in AXES]), names=np.array(names),
              freq=freq, H=H, X=X, X_ref=X_ref,
              pca_mean=mean, pca_components=comps, pca_ratio=ratio, pca_scores=scores,
-             t_window=np.array([-T_PRE, T_POST]))
+             t_window=np.array([-LEFT * EXP_DT, RIGHT * EXP_DT]))
 
     plot_spectra(out, freq, H, P)
     plot_cumulative(out, ratio)
@@ -350,7 +327,7 @@ def main():
     lines = [
         f"集合: {' '.join(args.set)} / phase {' '.join(map(str, args.phase))}  ({len(sel)} 件)",
         f"参照: {os.path.basename(path_of(ref[0]))}",
-        f"時間窓: 矩形、包絡線ピーク t0 から -{T_PRE*1e6:.2f} / +{T_POST*1e6:.2f} us",
+        f"時間窓: kiritori2（exp_dt 補間後、先頭 8000 点を除いた正の最大 t0 から左 {LEFT} 点 / 右 {RIGHT} 点 = -{LEFT*EXP_DT*1e6:.3f} / +{RIGHT*EXP_DT*1e6:.3f} us）",
         f"帯域: {F_MIN/1e6:.2f}-{F_MAX/1e6:.2f} MHz, {DF/1e6:.3f} MHz 刻み = {len(freq)} 点",
         f"特徴量: [Re R, Im R] = {X.shape[1]} 次元",
         f"|R| の範囲: {np.abs(H).min():.3f} - {np.abs(H).max():.3f}",
