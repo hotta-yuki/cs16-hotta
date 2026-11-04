@@ -68,6 +68,7 @@ T_POST = 2.0e-6
 # （底面エコーは約 7.2 us）。実験の記録は 5.41 us 始まりなので影響しない
 T_SEARCH = 3.0e-6
 PEAK_FRAC = 0.5      # main wave とみなす包絡線の閾値（最大に対する比）
+ENV_SMOOTH = 0.1e-6  # 包絡線の移動平均の幅 [s]（5 MHz の半周期）
 
 # 解析帯域 [Hz]。平滑面スペクトルの -20 dB 帯は 1.75-7.85 MHz（ピーク 4.75 MHz）。
 # 分母が小さい端を避けて内側に取る
@@ -76,6 +77,10 @@ F_MAX = 7.75e6
 DF = 0.05e6
 
 PC_TARGET = 0.99
+
+# window.png に載せる例。包絡線が 2 山に割れる条件と、実験波形 1 本（ex_index.csv の先頭）
+WINDOW_HARD_CASE = "kukei_cupy_pitch114_width48_depth30.csv"
+EXP_SAMPLE = os.path.join(HERE, "..", "simulation", "data", "ex_data", "scope_0.csv")
 
 # 色: 系列 1・2 と単色の連続ランプ（dataviz 既定パレット、blue 250 -> 700）
 C_RE, C_IM = "#2a78d6", "#eb6834"
@@ -98,10 +103,16 @@ def peak_time(t, w):
     底面エコーより大きく、最大を取ると t0 が 0.6 us 遅れる。
     """
     env = np.abs(hilbert(w))
+    # 実験の包絡線はノイズで細かく揺れ、閾値付近で区間が途切れる。移動平均で均す
+    n = max(1, int(round(ENV_SMOOTH / (t[1] - t[0]))))
+    env = np.convolve(env, np.ones(n) / n, mode="same")
     env[t < T_SEARCH] = 0.0
-    k = int(np.argmax(env >= PEAK_FRAC * env.max()))
-    while k < len(env) - 1 and env[k + 1] > env[k]:
-        k += 1
+    # 閾値を超えている最初の連続区間の中の最大。「最初の極大」にすると、
+    # 実験波形では立ち上がり途中のノイズの揺れを拾い t0 が 0.13 us 早まる
+    above = env >= PEAK_FRAC * env.max()
+    s = int(np.argmax(above))
+    e = s + int(np.argmin(above[s:])) if not above[s:].all() else len(env)
+    k = s + int(np.argmax(env[s:e]))
     if 0 < k < len(env) - 1:
         a, b, c = env[k - 1], env[k], env[k + 1]
         den = a - 2 * b + c
@@ -232,6 +243,40 @@ def plot_scores(out, scores, P, ratio):
     plt.close(fig)
 
 
+def plot_window(out, examples):
+    """波形全体と切り出し窓。左が全体、右が窓の付近の拡大（包絡線つき）。
+
+    examples は (見出し, 時刻 [s], 波形) のリスト。
+    """
+    fig, axs = plt.subplots(len(examples), 2, figsize=(15, 2.8 * len(examples)),
+                            gridspec_kw={"width_ratios": [3, 2]}, layout="constrained")
+    for row, (title, t, w) in zip(axs, examples):
+        t0 = peak_time(t, w)
+        env = np.abs(hilbert(w))
+        lo, hi = t0 - T_PRE, t0 + T_POST
+        for ax in row:
+            ax.axvspan(lo * 1e6, hi * 1e6, color=GRID, alpha=0.6, linewidth=0)
+            ax.axvline(t0 * 1e6, color="#52514e", linestyle="--", linewidth=1)
+            ax.plot(t * 1e6, w, color=C_RE, linewidth=0.8)
+            _style(ax)
+        z = (t >= t0 - 1.5e-6) & (t <= t0 + 3.5e-6)
+        row[1].plot(t[z] * 1e6, env[z], color=C_IM, linewidth=1.5, label="包絡線")
+        row[1].set_xlim((t0 - 1.5e-6) * 1e6, (t0 + 3.5e-6) * 1e6)
+        sel = (t >= lo) & (t < hi)
+        top = 1.15 * np.abs(w[z]).max()
+        row[1].set_ylim(-top, top)
+        row[0].set_title(f"{title}　全体（灰色が切り出し窓 {lo*1e6:.2f}-{hi*1e6:.2f} us）", loc="left")
+        row[1].set_title(f"窓の付近　t0 = {t0*1e6:.3f} us（破線）", loc="left")
+        row[1].text(hi * 1e6, top * 0.9, f" 窓外は捨てる\n （窓内 {sel.sum()} 点）",
+                    va="top", ha="left", color="#52514e", fontsize=9)
+        row[0].set_ylabel("振幅")
+    axs[0, 1].legend(frameon=False, loc="lower right")
+    axs[-1, 0].set_xlabel("時刻 [us]")
+    axs[-1, 1].set_xlabel("時刻 [us]")
+    fig.savefig(os.path.join(out, "window.png"), dpi=150)
+    plt.close(fig)
+
+
 # ---------------------------------------------------------------- main
 
 def main():
@@ -291,6 +336,16 @@ def main():
     plot_cumulative(out, ratio)
     plot_loadings(out, freq, comps, ratio)
     plot_scores(out, scores, P, ratio)
+
+    # 窓の図: 平滑面・代表 1 点・t0 の決め方が効く条件・実験 1 本
+    examples = [("平滑面（シミュレーション）", *load_wave(path_of(ref[0])))]
+    for i in [0] + [i for i, n in enumerate(names) if n == WINDOW_HARD_CASE]:
+        examples.append((f"p={P[i,0]:.2f} w={P[i,1]:.2f} d={P[i,2]:.2f} mm（シミュレーション）",
+                         *load_wave(os.path.join(args.sim_dir, names[i]))))
+    if os.path.isfile(EXP_SAMPLE):
+        examples.append((f"実験 {os.path.basename(EXP_SAMPLE)}（p=1.25 w=0.40 d=0.15 mm）",
+                         *load_scope(EXP_SAMPLE)))
+    plot_window(out, examples)
 
     lines = [
         f"集合: {' '.join(args.set)} / phase {' '.join(map(str, args.phase))}  ({len(sel)} 件)",
