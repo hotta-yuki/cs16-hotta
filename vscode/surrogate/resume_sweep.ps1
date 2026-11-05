@@ -17,6 +17,11 @@ $Python   = "C:\Users\cs16\anaconda3\envs\venv\python.exe"
 $LogDir   = Join-Path $Here "tmp_output"
 $Log      = Join-Path $LogDir ("run_log_resume_{0}.txt" -f (Get-Date -Format "yyyyMMdd"))
 
+# Phases to finish before the normal phase order. 2026-11-05: the user asked to
+# get the remaining 120 train points (learning curve 100 / 180) ahead of the
+# specimen and test phases. Set to @() to go back to plain phase order.
+$PriorityPhases = @(4)
+
 $running = Get-CimInstance Win32_Process -Filter "name='python.exe'" |
     Where-Object { $_.CommandLine -match "run_design\.py" -and $_.CommandLine -notmatch "--dry-run" }
 if ($running) {
@@ -36,7 +41,10 @@ if (-not $todo) {
 # cmd redirection keeps the log in the same encoding as the earlier logs
 # (PowerShell 5.1 ">>" would write UTF-16).
 $stamp = Get-Date -Format "yyyy-MM-dd HH:mm"
-cmd.exe /c "echo === auto resume at logon $stamp ($($todo.Count) left) ===>> `"$Log`""
+cmd.exe /c "echo === auto resume $stamp ($($todo.Count) left, priority phases: $($PriorityPhases -join ',')) ===>> `"$Log`""
+foreach ($ph in $PriorityPhases) {
+    cmd.exe /c "`"$Python`" -u run_design.py --phase $ph >> `"$Log`" 2>&1"
+}
 cmd.exe /c "`"$Python`" -u run_design.py >> `"$Log`" 2>&1"
 
 $left = & $Python -u run_design.py --dry-run 2>&1 | Select-String -SimpleMatch "RUN ->"
