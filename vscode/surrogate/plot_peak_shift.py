@@ -5,6 +5,7 @@
 p=1.14 w=0.48 d=0.30 mm では正の最大が後続の波（7.93 us）にあり、窓が底面エコーから
 外れる。溝の間の平らな部分は平滑面と同じ高さなので、そこからの正反射は平滑面の
 エコーと同じ時刻に届く。そこで「平滑面の t0 に最も近い正の山」を正しいピークとする。
+図は波形のみ（(a) 正しく取れている例、(b) ずれた例、(c) 正しいピークで切った例）。
 
 出力: vscode/surrogate/tmp_output/features/train_ph1/peak_shift.png
 """
@@ -40,10 +41,8 @@ def nearest_positive_peak(t, w, t_ref):
 
 def main():
     plt = f.plt
-    freq = f.freq_grid()
     ts, ws = f.load_wave(os.path.join(SIM, SMOOTH))
-    t0s, segs, taus = f.cut(ts, ws)
-    D_ref = np.exp(-2j * np.pi * np.outer(freq, taus)) @ segs * f.EXP_DT
+    t0s = f.cut(ts, ws)[0]
 
     tg, wg = f.load_wave(os.path.join(SIM, GOOD))
     tb, wb = f.load_wave(os.path.join(SIM, SHIFTED))
@@ -55,10 +54,7 @@ def main():
         ("(c) 同じ波形を正しいピークで切った場合（平滑面の t0 に最も近い正の山）", tb, wb, cut_at(tb, wb, t_ok)),
     ]
 
-    fig, m = plt.subplot_mosaic([["a", "a"], ["b", "b"], ["c", "c"], ["mag", "ph"]],
-                                figsize=(11, 12), layout="constrained",
-                                gridspec_kw={"height_ratios": [1, 1, 1, 1.1]})
-    axs = [m["a"], m["b"], m["c"]]
+    fig, axs = plt.subplots(3, 1, figsize=(11, 9), layout="constrained")
     xlim = (6.4, 10.0)
     for ax, (title, t, w, (t0, seg, tau)) in zip(axs, rows):
         lo, hi = t0 + tau[0], t0 + tau[-1]
@@ -76,22 +72,6 @@ def main():
         f._style(ax)
     axs[0].legend(frameon=False, loc="upper right", ncol=3)
     axs[2].set_xlabel("時刻 [us]（点線は平滑面の t0 = %.3f us）" % (t0s * 1e6))
-
-    # (d) 2 つの切り方での R の違い
-    for (label, color, (t0, seg, tau)) in [("(b) kiritori2", f.C_IM, rows[1][3]),
-                                           ("(c) 正しいピーク", f.C_RE, rows[2][3])]:
-        R = (np.exp(-2j * np.pi * np.outer(freq, tau)) @ seg * f.EXP_DT) / D_ref
-        m["mag"].plot(freq / 1e6, np.abs(R), color=color, linewidth=2, label=label)
-        m["ph"].plot(freq / 1e6, np.angle(R), color=color, linewidth=2, label=label)
-    m["mag"].set_title("(d) |R|（平滑面で正規化した振幅）", loc="left")
-    m["mag"].set_ylabel("|R|")
-    m["ph"].set_title("(e) arg R", loc="left")
-    m["ph"].set_ylabel("arg R [rad]")
-    m["ph"].set_ylim(-np.pi * 1.05, np.pi * 1.05)
-    m["mag"].legend(frameon=False, loc="upper right")
-    for ax in (m["mag"], m["ph"]):
-        ax.set_xlabel("周波数 [MHz]")
-        f._style(ax)
 
     fig.savefig(OUT, dpi=150)
     print(f"正しいピーク t0 = {t_ok*1e6:.3f} us（kiritori2 は {rows[1][3][0]*1e6:.3f} us、平滑面 {t0s*1e6:.3f} us）")
