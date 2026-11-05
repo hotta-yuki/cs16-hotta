@@ -14,8 +14,8 @@ vscode/simulation/plot_simdata.py と同じ流れ・同じ図の書式で作る�
 
 出力（vscode/surrogate/tmp_output/features/<set>_ph<phase>_refpeak/complex_spectrum/）
     waveform/<name>_waveform.png   切り出した波形（plot_simdata.py と同じ書式）
-    spectrum/<name>_complex.png    複素スペクトルの実部・虚部・振幅
-    spectrum/<name>_complex.csv    周波数 [Hz], 実部, 虚部（2-8 MHz）
+    spectrum_png/<name>_complex.png  複素スペクトルの実部・虚部・振幅
+    spectrum_csv/<name>_complex.csv  周波数 [Hz], 実部, 虚部（2-8 MHz）
     complex_spectra.npz            全件まとめ（names, params_mm, freq, D）
 """
 
@@ -70,9 +70,11 @@ def main():
     tag = "_".join(args.set) + "_ph" + "".join(map(str, args.phase)) + "_refpeak"
     out = os.path.join(SIM, "features", tag, "complex_spectrum")
     output_dir_waveform = os.path.join(out, "waveform")
-    output_dir_fft = os.path.join(out, "spectrum")
+    output_dir_fft = os.path.join(out, "spectrum_png")
+    output_dir_csv = os.path.join(out, "spectrum_csv")
     os.makedirs(output_dir_waveform, exist_ok=True)
     os.makedirs(output_dir_fft, exist_ok=True)
+    os.makedirs(output_dir_csv, exist_ok=True)
 
     # 正しいピークの基準 = 平滑面の t0（平滑面自身は kiritori2 で問題なく取れる）
     t_ref = f.cut(*f.load_wave(os.path.join(SIM, name_of(ref))))[0]
@@ -114,7 +116,7 @@ def main():
         plt.close()
 
         band = (freq >= fft_freq_min) & (freq <= fft_freq_max)
-        np.savetxt(os.path.join(output_dir_fft, csv_file.replace('.csv', '_complex.csv')),
+        np.savetxt(os.path.join(output_dir_csv, csv_file.replace('.csv', '_complex.csv')),
                    np.column_stack([freq[band], yf.real[band], yf.imag[band]]),
                    delimiter=",", header="freq_Hz,real,imag", comments="")
 
