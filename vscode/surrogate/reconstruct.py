@@ -92,6 +92,9 @@ def main():
     feat_dir = os.path.join(args.sim_dir, "features")
     z = np.load(os.path.join(feat_dir, args.train, "features.npz"))
     freq, X_ref = z["freq"], z["X_ref"]
+    # 学習側と同じピークの取り方で test を切る（featurize.py --peak smooth なら t_ref が入る）。
+    # 実験波形には平滑面の基準が無いので、常に kiritori2 の正の最大で切る
+    t_ref = float(z["t_ref"]) if "t_ref" in z.files and np.isfinite(z["t_ref"]) else None
     mean, comps, ratio = z["pca_mean"], z["pca_components"], z["pca_ratio"]
     K = len(freq)
 
@@ -102,7 +105,7 @@ def main():
         fn = out_name(r, float(r["pitch_m"]), float(r["width_m"]), float(r["depth_m"]))
         if fn in set(z["names"]):
             raise SystemExit(f"{fn} が学習側にも入っている")
-        R = spectrum(*load_wave(os.path.join(args.sim_dir, fn)), freq) / X_ref
+        R = spectrum(*load_wave(os.path.join(args.sim_dir, fn)), freq, t_ref) / X_ref
         names.append(fn)
         P.append([float(r[k + "_m"]) * 1e3 for k in ("pitch", "width", "depth")])
         Y.append(np.concatenate([R.real, R.imag]))

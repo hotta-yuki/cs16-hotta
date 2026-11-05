@@ -36,19 +36,6 @@ SHIFTED = f.WINDOW_HARD_CASE                        # p=1.14 w=0.48 d=0.30 mm
 WAVEFORM_YLIM = (-1.5, 1.5)
 
 
-def cut_at(t, w, t0):
-    """kiritori2 と同じ左右点数で、指定した t0 を中心に切る。"""
-    k = int(np.argmin(np.abs(t - t0)))
-    return w[k - f.LEFT:k + f.RIGHT]
-
-
-def nearest_positive_peak(t, w, t_ref):
-    """t_ref に最も近い正の極大の時刻。"""
-    i = np.arange(1, len(w) - 1)
-    pk = i[(w[i] > w[i - 1]) & (w[i] >= w[i + 1]) & (w[i] > 0.2 * w.max())]
-    return t[pk[np.argmin(np.abs(t[pk] - t_ref))]]
-
-
 def plot_waveform(sliced_waveform, title, path):
     """plot_simdata.py の波形プロットと同じ書式。"""
     plt.figure(figsize=(8, 4))
@@ -70,13 +57,13 @@ def main():
     tg, wg = f.load_wave(os.path.join(SIM, GOOD))
     tb, wb = f.load_wave(os.path.join(SIM, SHIFTED))
     t0b = f.cut(tb, wb)[0]
-    t_ok = nearest_positive_peak(tb, wb, t0s)
+    t_ok, seg_ok, _ = f.cut(tb, wb, t_ref=t0s)   # featurize.py --peak smooth と同じ切り方
 
     plot_waveform(f.cut(tg, wg)[1], f"{GOOD} - Waveform",
                   os.path.join(OUT_DIR, "peak_shift_a.png"))
     plot_waveform(f.cut(tb, wb)[1], f"{SHIFTED} - Waveform",
                   os.path.join(OUT_DIR, "peak_shift_b.png"))
-    plot_waveform(cut_at(tb, wb, t_ok), f"{SHIFTED} - Waveform (corrected peak)",
+    plot_waveform(seg_ok, f"{SHIFTED} - Waveform (corrected peak)",
                   os.path.join(OUT_DIR, "peak_shift_c.png"))
 
     print(f"正しいピーク t0 = {t_ok*1e6:.3f} us（kiritori2 は {t0b*1e6:.3f} us、平滑面 {t0s*1e6:.3f} us）")

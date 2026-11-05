@@ -88,19 +88,38 @@ def freq_grid():
     return np.arange(F_MIN, F_MAX + DF / 2, DF)
 
 
-def cut(t, w):
-    """kiritori2 で切り出す。返り値は (t0 [s], 切り出し波形, t0 基準の時刻 [s])。"""
-    off = int(np.searchsorted(t, SIM_SKIP_T))
-    k = off + int(np.nanargmax(w[off:]))    # kiritori2 内部と同じピーク
-    with contextlib.redirect_stdout(io.StringIO()):   # kiritori2 は毎回 shape を print する
-        seg = sn2.kiritori2(w[off:], LEFT, RIGHT)
+def nearest_positive_peak(t, w, t_ref):
+    """t_ref に最も近い正の極大のインデックス（最大の 20% 未満の山は無視）。"""
+    i = np.arange(1, len(w) - 1)
+    pk = i[(w[i] > w[i - 1]) & (w[i] >= w[i + 1]) & (w[i] > 0.2 * np.nanmax(w))]
+    return int(pk[np.argmin(np.abs(t[pk] - t_ref))])
+
+
+def cut(t, w, t_ref=None):
+    """kiritori2 で切り出す。返り値は (t0 [s], 切り出し波形, t0 基準の時刻 [s])。
+
+    t_ref を渡すと、ピークを正の最大ではなく「t_ref に最も近い正の山」にする
+    （--peak smooth。t_ref は平滑面の t0）。溝の間の平らな部分は平滑面と同じ高さ
+    なので、底面エコーの正反射は平滑面と同じ時刻に届く。正の最大が後続の波に
+    乗る条件（p=1.14 w=0.48 d=0.30 mm で 0.6 us ずれる）を避けるため。
+    左右の点数は kiritori2 と同じ。平滑面の基準が無い実験波形には使えない。
+    """
+    if t_ref is not None:
+        k = nearest_positive_peak(t, w, t_ref)
+        seg = w[k - LEFT:k + RIGHT]
+        seg = np.pad(seg, (0, LEFT + RIGHT - len(seg)))   # kiritori2 と同じく末尾をゼロ埋め
+    else:
+        off = int(np.searchsorted(t, SIM_SKIP_T))
+        k = off + int(np.nanargmax(w[off:]))    # kiritori2 内部と同じピーク
+        with contextlib.redirect_stdout(io.StringIO()):   # kiritori2 は毎回 shape を print する
+            seg = sn2.kiritori2(w[off:], LEFT, RIGHT)
     tau = (np.arange(len(seg)) - LEFT) * EXP_DT
     return t[k], seg, tau
 
 
-def spectrum(t, w, freq):
-    """kiritori2 で切り出した波形の、固定周波数グリッドでの複素スペクトル。時刻原点は t0。"""
-    _, seg, tau = cut(t, w)
+def spectrum(t, w, freq, t_ref=None):
+    """切り出した波形の、固定周波数グリッドでの複素スペクトル。時刻原点は t0。"""
+    _, seg, tau = cut(t, w, t_ref)
     E = np.exp(-2j * np.pi * np.outer(freq, tau))
     return E @ seg * EXP_DT
 
@@ -220,12 +239,12 @@ def plot_window(out, examples):
     """波形全体と kiritori2 の切り出し窓。左が全体、右が窓の付近の拡大。
 
     右には kiritori2 が返した波形そのものを重ねる（窓の位置がずれていないことの確認）。
-    examples は (見出し, 時刻 [s], 波形) のリスト。
+    examples は (見出し, 時刻 [s], 波形, t_ref) のリスト。t_ref は cut() に渡す（None なら正の最大）。
     """
     fig, axs = plt.subplots(len(examples), 2, figsize=(15, 2.8 * len(examples)),
                             gridspec_kw={"width_ratios": [3, 2]}, layout="constrained")
-    for row, (title, t, w) in zip(axs, examples):
-        t0, seg, tau = cut(t, w)
+    for row, (title, t, w, t_ref) in zip(axs, examples):
+        t0, seg, tau = cut(t, w, t_ref)
         lo, hi = t0 - LEFT * EXP_DT, t0 + RIGHT * EXP_DT
         for ax in row:
             ax.axvspan(lo * 1e6, hi * 1e6, color=GRID, alpha=0.6, linewidth=0)
@@ -264,6 +283,8 @@ def main():
                     help="既定は phase 1（train の最初の 60 点）")
     ap.add_argument("--sim-dir", default=os.path.join(HERE, "tmp_output"))
     ap.add_argument("--tag", default=None, help="出力サブディレクトリ名")
+    ap.add_argument("--peak", choices=["kiritori2", "smooth"], default="kiritori2",
+                    help="t0 の取り方。kiritori2 = 正の最大、smooth = 平滑面の t0 に最も近い正の山")
     args = ap.parse_args()
 
     rows = list(csv.DictReader(open(args.design, encoding="utf-8")))
@@ -283,15 +304,19 @@ def main():
         raise SystemExit(f"未計算が {len(missing)} 件:\n  " + "\n  ".join(missing))
 
     freq = freq_grid()
-    X_ref = spectrum(*load_wave(path_of(ref[0])), freq)
+    t_s, w_s = load_wave(path_of(ref[0]))
+    X_ref = spectrum(t_s, w_s, freq)
+    t_ref = cut(t_s, w_s)[0] if args.peak == "smooth" else None
 
-    names, P, H = [], [], []
+    names, P, H, T0 = [], [], [], []
     for r in sel:
         p = path_of(r)
         names.append(os.path.basename(p))
         # 実際に刻まれた寸法（_m 列）を使う。_mm 列は量子化前の公称値
         P.append([float(r[k + "_m"]) * 1e3 for k, _ in AXES])
-        H.append(spectrum(*load_wave(p), freq) / X_ref)
+        t, w = load_wave(p)
+        T0.append(cut(t, w, t_ref)[0])
+        H.append(spectrum(t, w, freq, t_ref) / X_ref)
     P, H = np.array(P), np.array(H)
     X = np.concatenate([H.real, H.imag], axis=1)
 
@@ -299,7 +324,8 @@ def main():
     cum = np.cumsum(ratio)
     scores = (X - mean) @ comps.T
 
-    tag = args.tag or "_".join(args.set) + "_ph" + "".join(map(str, args.phase))
+    tag = args.tag or ("_".join(args.set) + "_ph" + "".join(map(str, args.phase))
+                       + ("_refpeak" if args.peak == "smooth" else ""))
     out = os.path.join(args.sim_dir, "features", tag)
     os.makedirs(out, exist_ok=True)
 
@@ -307,7 +333,8 @@ def main():
              params_mm=P, param_names=np.array([k for k, _ in AXES]), names=np.array(names),
              freq=freq, H=H, X=X, X_ref=X_ref,
              pca_mean=mean, pca_components=comps, pca_ratio=ratio, pca_scores=scores,
-             t_window=np.array([-LEFT * EXP_DT, RIGHT * EXP_DT]))
+             t_window=np.array([-LEFT * EXP_DT, RIGHT * EXP_DT]),
+             t0=np.array(T0), t_ref=np.nan if t_ref is None else t_ref)
 
     plot_spectra(out, freq, H, P)
     plot_cumulative(out, ratio)
@@ -315,19 +342,20 @@ def main():
     plot_scores(out, scores, P, ratio)
 
     # 窓の図: 平滑面・代表 1 点・t0 の決め方が効く条件・実験 1 本
-    examples = [("平滑面（シミュレーション）", *load_wave(path_of(ref[0])))]
+    examples = [("平滑面（シミュレーション）", t_s, w_s, None)]
     for i in [0] + [i for i, n in enumerate(names) if n == WINDOW_HARD_CASE]:
         examples.append((f"p={P[i,0]:.2f} w={P[i,1]:.2f} d={P[i,2]:.2f} mm（シミュレーション）",
-                         *load_wave(os.path.join(args.sim_dir, names[i]))))
+                         *load_wave(os.path.join(args.sim_dir, names[i])), t_ref))
     if os.path.isfile(EXP_SAMPLE):
         examples.append((f"実験 {os.path.basename(EXP_SAMPLE)}（p=1.25 w=0.40 d=0.15 mm）",
-                         *load_scope(EXP_SAMPLE)))
+                         *load_scope(EXP_SAMPLE), None))
     plot_window(out, examples)
 
     lines = [
         f"集合: {' '.join(args.set)} / phase {' '.join(map(str, args.phase))}  ({len(sel)} 件)",
         f"参照: {os.path.basename(path_of(ref[0]))}",
-        f"時間窓: kiritori2（exp_dt 補間後、先頭 8000 点を除いた正の最大 t0 から左 {LEFT} 点 / 右 {RIGHT} 点 = -{LEFT*EXP_DT*1e6:.3f} / +{RIGHT*EXP_DT*1e6:.3f} us）",
+        f"時間窓: kiritori2 と同じ（exp_dt 補間後、t0 から左 {LEFT} 点 / 右 {RIGHT} 点 = -{LEFT*EXP_DT*1e6:.3f} / +{RIGHT*EXP_DT*1e6:.3f} us）",
+        "ピーク: " + ("正の最大（kiritori2）" if t_ref is None else f"平滑面の t0 = {t_ref*1e6:.3f} us に最も近い正の山（シミュレーションのみ）"),
         f"帯域: {F_MIN/1e6:.2f}-{F_MAX/1e6:.2f} MHz, {DF/1e6:.3f} MHz 刻み = {len(freq)} 点",
         f"特徴量: [Re R, Im R] = {X.shape[1]} 次元",
         f"|R| の範囲: {np.abs(H).min():.3f} - {np.abs(H).max():.3f}",
