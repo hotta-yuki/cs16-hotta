@@ -16,7 +16,11 @@ vscode/simulation/plot_simdata.py と同じ流れ・同じ図の書式で作る�
     waveform/<name>_waveform.png   切り出した波形（plot_simdata.py と同じ書式）
     spectrum_png/<name>_complex.png  複素スペクトルの実部・虚部・振幅
     spectrum_csv/<name>_complex.csv  周波数 [Hz], 実部, 虚部（2-8 MHz）
-    complex_spectra.npz            全件まとめ（names, params_mm, freq, D）
+    spectrum_norm_png/<name>_norm.png  平滑面で正規化した R = D / D_smooth の実部・虚部・|R|
+    spectrum_norm_csv/<name>_norm.csv  周波数 [Hz], R の実部, 虚部（2-8 MHz）
+    complex_spectra.npz            全件まとめ（names, params_mm, freq, D, R）
+
+平滑面自身の R は定義上 1 + 0j になる（確認用にそのまま出力する）。
 """
 
 import argparse
@@ -41,6 +45,9 @@ waveform_ylim_min = -1.5
 waveform_ylim_max = 1.5
 fft_ylim_min = -0.06
 fft_ylim_max = 0.06
+# 正規化スペクトル R は 1 前後（教師 60 点で |R| = 0.06-1.42）
+norm_ylim_min = -1.5
+norm_ylim_max = 1.5
 
 
 def complex_fft(seg):
@@ -72,15 +79,17 @@ def main():
     output_dir_waveform = os.path.join(out, "waveform")
     output_dir_fft = os.path.join(out, "spectrum_png")
     output_dir_csv = os.path.join(out, "spectrum_csv")
-    os.makedirs(output_dir_waveform, exist_ok=True)
-    os.makedirs(output_dir_fft, exist_ok=True)
-    os.makedirs(output_dir_csv, exist_ok=True)
+    output_dir_norm = os.path.join(out, "spectrum_norm_png")
+    output_dir_norm_csv = os.path.join(out, "spectrum_norm_csv")
+    for d in (output_dir_waveform, output_dir_fft, output_dir_csv, output_dir_norm, output_dir_norm_csv):
+        os.makedirs(d, exist_ok=True)
 
     # 正しいピークの基準 = 平滑面の t0（平滑面自身は kiritori2 で問題なく取れる）
     t_ref = f.cut(*f.load_wave(os.path.join(SIM, name_of(ref))))[0]
 
-    names, params, spectra = [], [], []
-    for r in [ref] + sel:
+    names, params, spectra, norm_spectra = [], [], [], []
+    D_smooth = None
+    for r in [ref] + sel:   # 先頭が平滑面。そのスペクトルを D_smooth として以降の正規化に使う
         csv_file = name_of(r)
         t, waveform = f.load_wave(os.path.join(SIM, csv_file))   # exp_dt に補間済み
         t0, sliced_waveform, _ = f.cut(t, waveform, t_ref)
@@ -120,14 +129,37 @@ def main():
                    np.column_stack([freq[band], yf.real[band], yf.imag[band]]),
                    delimiter=",", header="freq_Hz,real,imag", comments="")
 
+        # 平滑面で正規化した複素スペクトル R = D / D_smooth
+        if D_smooth is None:
+            D_smooth = yf
+        R = yf / D_smooth
+        plt.figure(figsize=(8, 4))
+        plt.plot(freq[band], R.real[band], label='Real')
+        plt.plot(freq[band], R.imag[band], label='Imag')
+        plt.plot(freq[band], np.abs(R[band]), color='gray', linestyle='--', linewidth=1, label='|R|')
+        plt.title(f"{csv_file} - Normalized spectrum (D / D_smooth)")
+        plt.xlabel('Frequency [Hz]')
+        plt.ylabel('Normalized spectrum')
+        plt.xlim(fft_freq_min, fft_freq_max)
+        plt.ylim(norm_ylim_min, norm_ylim_max)
+        plt.grid(True)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir_norm, csv_file.replace('.csv', '_norm.png')))
+        plt.close()
+        np.savetxt(os.path.join(output_dir_norm_csv, csv_file.replace('.csv', '_norm.csv')),
+                   np.column_stack([freq[band], R.real[band], R.imag[band]]),
+                   delimiter=",", header="freq_Hz,real,imag", comments="")
+
         names.append(csv_file)
         params.append([float(r[k + "_m"]) * 1e3 for k in ("pitch", "width", "depth")])
         spectra.append(yf[band])
+        norm_spectra.append(R[band])
         print(f"{csv_file}: t0 = {t0*1e6:.3f} us")
 
     np.savez(os.path.join(out, "complex_spectra.npz"),
              names=np.array(names), params_mm=np.array(params),
-             freq=freq[band], D=np.array(spectra), t_ref=t_ref)
+             freq=freq[band], D=np.array(spectra), R=np.array(norm_spectra), t_ref=t_ref)
     print(f"Processed {len(names)} files（先頭は平滑面）. Output: {out}")
 
 
