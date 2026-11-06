@@ -22,6 +22,14 @@ $Log      = Join-Path $LogDir ("run_log_resume_{0}.txt" -f (Get-Date -Format "yy
 # specimen and test phases. Set to @() to go back to plain phase order.
 $PriorityPhases = @(4)
 
+# The task has both a startup and a logon trigger, and they can fire within
+# seconds of each other in different sessions. A Global mutex makes the second
+# one exit even before the first has launched python. Held until this script ends.
+$mutex = New-Object System.Threading.Mutex($false, "Global\SurrogateSweepResume")
+if (-not $mutex.WaitOne(0)) {
+    exit 0
+}
+
 $running = Get-CimInstance Win32_Process -Filter "name='python.exe'" |
     Where-Object { $_.CommandLine -match "run_design\.py" -and $_.CommandLine -notmatch "--dry-run" }
 if ($running) {
