@@ -28,6 +28,10 @@ sys.path.insert(0, os.path.join(REPO_ROOT, "vscode", "simulation"))
 sys.path.insert(0, HERE)
 
 from naming import SIM_SHAPE, sim_csv_name, smooth_csv_name
+# run_design が「計算済み」とみなす場所（既存の 4.7 MHz データ）も見る。
+# 試験体の 2 件（p1.25/w25/d20 と p1.25/w15/d10）はそこにしか無く、
+# out_dir だけ数えると永久に「残り 2」「次に回る条件」に出続けていた。
+from run_design import CHECK_DIRS  # solver は関数内 import なので GPU は不要
 
 PHASE_NAME = {
     0: "isorms + 平滑面  識別可能性の判定",
@@ -54,8 +58,11 @@ def collect(out_dir):
     for r in rows:
         path = os.path.join(out_dir, out_name(r))
         ok = os.path.exists(path)
+        if not ok:
+            ok = any(os.path.exists(os.path.join(d, out_name(r))) for d in CHECK_DIRS)
         have[id(r)] = ok
-        if ok and r["set"] != "reuse":
+        # ペースは掃引で書いたファイルだけから出す（既存データの時刻は無関係）
+        if os.path.exists(path) and r["set"] != "reuse":
             times.append(os.path.getmtime(path))
     times.sort()
     recent = [b - a for a, b in zip(times[-11:], times[-10:]) if 60 < b - a < 3600]
@@ -161,42 +168,24 @@ def markdown(out_dir):
 
 
 def report(out_dir):
-    rows = list(csv.DictReader(open(os.path.join(HERE, "design.csv"), encoding="utf-8")))
-    have, times = {}, []
-    for r in rows:
-        path = os.path.join(out_dir, out_name(r))
-        ok = os.path.exists(path)
-        have[id(r)] = ok
-        if ok and r["set"] != "reuse":
-            times.append(os.path.getmtime(path))
-    times.sort()
-
-    # 直近 10 件の間隔から 1 件あたりの所要時間を出す（起動直後の偏りを避ける）
-    recent = [b - a for a, b in zip(times[-11:], times[-10:]) if 60 < b - a < 3600]
-    per = sum(recent) / len(recent) if recent else 8.4 * 60
+    st = collect(out_dir)
+    per = st["per"]
 
     print(f"{time.strftime('%Y-%m-%d %H:%M:%S')}   出力先: {out_dir}")
     print(f"{'phase':<34}  {'完了':>8}  {'残り':>5}  {'残り時間':>9}")
     print("-" * 64)
-    total_left = 0
-    for ph in sorted({int(r["phase"]) for r in rows}):
-        sub = [r for r in rows if int(r["phase"]) == ph]
-        done = sum(have[id(r)] for r in sub)
-        left = len(sub) - done
-        if ph != 9:
-            total_left += left
-        bar = "#" * int(20 * done / len(sub)) + "." * (20 - int(20 * done / len(sub)))
-        eta = "-" if ph == 9 or left == 0 else f"{left * per / 3600:6.1f} h"
-        print(f"{ph} {PHASE_NAME.get(ph, ''):<32}{bar} {done:3d}/{len(sub):<3d} {left:5d}  {eta:>9}")
+    for p in st["phases"]:
+        done, total, left = p["done"], p["total"], p["left"]
+        bar = "#" * int(20 * done / total) + "." * (20 - int(20 * done / total))
+        eta = "-" if p["eta_h"] is None else f"{p['eta_h']:6.1f} h"
+        print(f"{p['phase']} {p['name']:<32}{bar} {done:3d}/{total:<3d} {left:5d}  {eta:>9}")
     print("-" * 64)
-    done_all = sum(have.values())
-    print(f"全体 {done_all}/{len(rows)} 件   ペース {per / 60:.1f} 分/件   "
-          f"残り {total_left} 件 = {total_left * per / 3600:.1f} 時間"
-          f"（完了予定 {time.strftime('%m/%d %H:%M', time.localtime(time.time() + total_left * per))}）")
+    print(f"全体 {st['done_all']}/{st['n_all']} 件   ペース {per / 60:.1f} 分/件   "
+          f"残り {st['total_left']} 件 = {st['total_left'] * per / 3600:.1f} 時間"
+          f"（完了予定 {time.strftime('%m/%d %H:%M', time.localtime(st['eta_abs']))}）")
 
-    running = [r for r in rows if not have[id(r)]]
-    if running:
-        nxt = min(running, key=lambda r: (int(r["phase"]), int(r["order"])))
+    nxt = st["next"]
+    if nxt:
         print(f"次に回る条件: {nxt['set']} p={nxt['pitch_mm']} w={nxt['width_mm']} d={nxt['depth_mm']}")
 
 
