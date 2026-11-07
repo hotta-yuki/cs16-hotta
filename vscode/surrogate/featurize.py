@@ -283,6 +283,9 @@ def main():
                     help="既定は phase 1（train の最初の 60 点）")
     ap.add_argument("--sim-dir", default=os.path.join(HERE, "tmp_output"))
     ap.add_argument("--tag", default=None, help="出力サブディレクトリ名")
+    ap.add_argument("--first", type=int, default=None,
+                    help="選んだ行を order 順に並べて先頭 N 件だけ使う（学習曲線 60/100/160/180 点用）。"
+                         "order_design.py の巡回順なので、先頭 N 件も空間をほぼ均等に埋める")
     ap.add_argument("--peak", choices=["kiritori2", "smooth"], default="kiritori2",
                     help="t0 の取り方。kiritori2 = 正の最大、smooth = 平滑面の t0 に最も近い正の山")
     args = ap.parse_args()
@@ -294,6 +297,10 @@ def main():
     sel = [r for r in rows if r["set"] in args.set and int(r["phase"]) in args.phase]
     if not sel:
         raise SystemExit("該当する行が無い")
+    if args.first:
+        sel = sorted(sel, key=lambda r: (int(r["phase"]), int(r["order"])))[:args.first]
+        if len(sel) < args.first:
+            raise SystemExit(f"--first {args.first} に対して {len(sel)} 件しか無い")
 
     def path_of(r):
         return os.path.join(args.sim_dir, out_name(r, float(r["pitch_m"]),
@@ -325,6 +332,7 @@ def main():
     scores = (X - mean) @ comps.T
 
     tag = args.tag or ("_".join(args.set) + "_ph" + "".join(map(str, args.phase))
+                       + (f"_first{args.first}" if args.first else "")
                        + ("_refpeak" if args.peak == "smooth" else ""))
     out = os.path.join(args.sim_dir, "features", tag)
     os.makedirs(out, exist_ok=True)
