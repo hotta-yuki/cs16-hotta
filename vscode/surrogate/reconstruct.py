@@ -7,7 +7,7 @@
 
 比べる量
 --------
-実験には平滑面の測定が無く R = D / D_smooth を作れない。そこで両者とも
+(1) D の相対誤差（当初の比較。実験に平滑面の測定が無かったため）。両者とも
 「窓をかけた main wave の複素スペクトル D の相対誤差」に揃える。
 
     復元誤差   eps_rec(J) = ||(R_rec - R) D_smooth|| / ||R D_smooth||
@@ -18,11 +18,20 @@
 
     eps_flaw(J) = ||y_rec - y|| / ||y - y_smooth||     （y_smooth は R = 1）
 
+(2) R どうしの比較（2026-11-12、実験の平滑面 ex_flat が入ってから）。実験も
+R_exp = D / D_flat にして、PCA の特徴量そのものの空間で比べる。
+
+    復元誤差   eps_rec_R(J) = ||R_rec - R|| / ||R||
+    ノイズ     ||R_i - R_mean|| / ||R_mean||        平滑面を 6 本の平均に固定
+               ||R_ij - R_mean|| / ||R_mean||       平滑面の繰り返しも込み（R_ij = D_i / D_flat,j）
+
 出力（vscode/surrogate/tmp_output/features/step6_<train>_<test>/）
     summary.txt       J ごとの誤差とノイズ（まずこれを読む）
     recon_error.png   J に対する復元誤差とノイズ床
     recon_per_sample.png  採用 J での test 各点の誤差
     noise_groups.csv  実験の条件ごとのばらつき
+    recon_error_R.png    (2) の J に対する復元誤差と実験 R のばらつき
+    noise_groups_R.csv   (2) の条件ごとのばらつき
 """
 
 import argparse
@@ -50,6 +59,10 @@ from run_design import out_name
 
 EXP_DIR = os.path.join(HERE, "..", "simulation", "data", "ex_data")
 EXP_INDEX = os.path.join(HERE, "..", "simulation", "data", "ex_index.csv")
+# 実験の平滑面（2026-11-05 測定）。scope_0〜3 は振幅が約 1/4 でピークも 70 ns 遅く、
+# 測定条件が違うので使わない（exp_normalized_spectrum.py と同じ）
+FLAT_DIR = os.path.join(HERE, "..", "simulation", "data", "ex_flat")
+FLAT_IDX = range(4, 10)
 J_MAX = 40
 
 
@@ -78,6 +91,45 @@ def experimental_noise(freq):
                        "median": float(np.median(eps)), "max": float(eps.max())})
         eps_all.extend(eps)
     return groups, np.array(eps_all)
+
+
+def experimental_noise_R(freq):
+    """実験の正規化スペクトル R = D / D_flat の繰り返しばらつき（R どうしの比較用）。
+
+    2 通り出す。
+      fixed: 分母を平滑面 6 本の平均 D_flat に固定し、きず面の繰り返しだけを見る
+             eps = ||R_i - R_mean|| / ||R_mean||,  R_i = D_i / D_flat
+      pair : 平滑面の繰り返しも含める。きず面 i と平滑面 j の全組 R_ij = D_i / D_flat,j
+             のばらつき。逆推定で実際に使う R_exp の不確かさはこちらに近い
+    どちらも平均に自分が入る分を sqrt(N/(N-1)) で補正する。
+    返り値は (条件ごとの dict のリスト, fixed の全波形, pair の全組, 平滑面のばらつき)。
+    """
+    Df = np.array([spectrum(*load_scope(os.path.join(FLAT_DIR, f"scope_{j}.csv")), freq)
+                   for j in FLAT_IDX])
+    D_flat = Df.mean(axis=0)
+    flat_eps = np.linalg.norm(Df - D_flat, axis=1) / np.linalg.norm(D_flat) * np.sqrt(len(Df) / (len(Df) - 1))
+
+    with open(EXP_INDEX, encoding="utf-8-sig", newline="") as fh:
+        rows = [r for r in csv.reader(fh) if r and r[0].strip()][1:]
+    groups, fixed_all, pair_all = [], [], []
+    for r in rows:
+        s, e = int(r[0]), int(r[1])
+        D = [spectrum(*load_scope(p), freq) for p in
+             (os.path.join(EXP_DIR, f"scope_{i}.csv") for i in range(s, e + 1)) if os.path.isfile(p)]
+        if len(D) < 2:
+            continue
+        D = np.array(D)
+        R = D / D_flat
+        Rm = R.mean(axis=0)
+        fixed = np.linalg.norm(R - Rm, axis=1) / np.linalg.norm(Rm) * np.sqrt(len(R) / (len(R) - 1))
+        Rp = (D[:, None, :] / Df[None, :, :]).reshape(-1, len(freq))
+        Rpm = Rp.mean(axis=0)
+        pair = np.linalg.norm(Rp - Rpm, axis=1) / np.linalg.norm(Rpm) * np.sqrt(len(Rp) / (len(Rp) - 1))
+        groups.append({"pitch": r[2], "depth": r[3], "width": r[4], "n": len(D),
+                       "R_fixed_median": float(np.median(fixed)), "R_pair_median": float(np.median(pair))})
+        fixed_all.extend(fixed)
+        pair_all.extend(pair)
+    return groups, np.array(fixed_all), np.array(pair_all), flat_eps
 
 
 def main():
@@ -116,11 +168,13 @@ def main():
     Js = np.arange(1, min(J_MAX, len(comps)) + 1)
     eps_rec = np.zeros((len(Js), len(Y)))
     eps_flaw = np.zeros_like(eps_rec)
+    eps_rec_R = np.zeros_like(eps_rec)   # R どうし（重みなし）: ||R_rec - R|| / ||R||
     for a, J in enumerate(Js):
         V = comps[:J]
         Yr = mean + (Y - mean) @ V.T @ V
         Rr = Yr[:, :K] + 1j * Yr[:, K:]
         eps_rec[a] = np.linalg.norm((Rr - R) * X_ref, axis=1) / np.linalg.norm(R * X_ref, axis=1)
+        eps_rec_R[a] = np.linalg.norm(Rr - R, axis=1) / np.linalg.norm(R, axis=1)
         eps_flaw[a] = np.linalg.norm(Yr - Y, axis=1) / np.linalg.norm(Y - y_smooth, axis=1)
 
     groups, eps_n = experimental_noise(freq)
@@ -179,6 +233,61 @@ def main():
     fig.savefig(os.path.join(out, "recon_per_sample.png"), dpi=150)
     plt.close(fig)
 
+    # ---- R どうしの比較（実験の平滑面 ex_flat で割った R_exp のばらつき）
+    groups_R, nR_fixed, nR_pair, flat_eps = experimental_noise_R(freq)
+    nRf, nRp = float(np.median(nR_fixed)), float(np.median(nR_pair))
+
+    def first_below_R(curve, level):
+        idx = np.nonzero(curve < level)[0]
+        return int(Js[idx[0]]) if len(idx) else None
+
+    with open(os.path.join(out, "noise_groups_R.csv"), "w", encoding="utf-8", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(groups_R[0]))
+        w.writeheader()
+        w.writerows(groups_R)
+
+    fig, ax = plt.subplots(figsize=(8, 5), layout="constrained")
+    ax.axhline(nRp, color="#52514e", linestyle="--", linewidth=1)
+    ax.text(Js[-1], nRp, f" 実験 R のばらつき（平滑面の繰り返し込み）中央値 {nRp:.3f}",
+            va="bottom", ha="right", color="#0b0b0b")
+    ax.axhline(nRf, color="#52514e", linestyle=":", linewidth=1)
+    ax.text(Js[-1], nRf, f" 平滑面を平均に固定 中央値 {nRf:.3f}", va="top", ha="right", color="#52514e")
+    ax.plot(Js, np.median(eps_rec_R, axis=1), color=C_RE, linewidth=2, marker="o", markersize=4,
+            label=f"test {len(Y)} 点の中央値")
+    ax.plot(Js, eps_rec_R.max(axis=1), color=C_IM, linewidth=2, marker="o", markersize=4,
+            label=f"test {len(Y)} 点の最大")
+    ax.axvline(J99, color="#52514e", linewidth=1, linestyle=":")
+    ax.text(J99, eps_rec_R.max(), f" 寄与率 99%（J={J99}）", color="#52514e", va="top")
+    ax.set_yscale("log")
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.set_xlabel("主成分の数 J")
+    ax.set_ylabel("相対誤差 ||R_rec - R|| / ||R||")
+    ax.set_title(f"R どうしの比較（学習 {args.train}、評価 {' '.join(args.set)} phase {' '.join(map(str, args.phase))}）")
+    ax.legend(frameon=False, loc="lower left")
+    _style(ax)
+    fig.savefig(os.path.join(out, "recon_error_R.png"), dpi=150)
+    plt.close(fig)
+
+    lines_R = [
+        "",
+        "---- R どうしの比較（実験の平滑面 ex_flat scope_4〜9 で割った R_exp）----",
+        f"復元誤差 eps_rec_R = ||R_rec - R|| / ||R||（重みなし）",
+        f"平滑面 6 本のばらつき ||D_flat,j - D_flat|| / ||D_flat||: 中央値 {np.median(flat_eps):.4f}",
+        f"実験 R のばらつき（平滑面を平均に固定、{len(nR_fixed)} 波形）: 中央値 {nRf:.4f}, "
+        f"5% 点 {np.percentile(nR_fixed, 5):.4f}, 95% 点 {np.percentile(nR_fixed, 95):.4f}",
+        f"実験 R のばらつき（平滑面の繰り返し込み、{len(nR_pair)} 組）: 中央値 {nRp:.4f}, "
+        f"5% 点 {np.percentile(nR_pair, 5):.4f}, 95% 点 {np.percentile(nR_pair, 95):.4f}",
+        f"test の中央値が下回る最小の J: 固定 {first_below_R(np.median(eps_rec_R, axis=1), nRf)} / "
+        f"繰り返し込み {first_below_R(np.median(eps_rec_R, axis=1), nRp)}",
+        f"test の全点が下回る最小の J:   固定 {first_below_R(eps_rec_R.max(axis=1), nRf)} / "
+        f"繰り返し込み {first_below_R(eps_rec_R.max(axis=1), nRp)}",
+        "",
+        "  J   eps_rec_R 中央値   最大   固定ノイズ超えの点数   繰り返し込み超えの点数",
+    ]
+    for a, J in enumerate(Js):
+        lines_R.append(f"{J:3d}  {np.median(eps_rec_R[a]):12.4f}  {eps_rec_R[a].max():8.4f}"
+                       f"  {int((eps_rec_R[a] > nRf).sum()):12d}  {int((eps_rec_R[a] > nRp).sum()):18d}")
+
     lines = [
         f"学習: {args.train}（{len(z['names'])} 点）  評価: {' '.join(args.set)} phase {' '.join(map(str, args.phase))}（{len(Y)} 点）",
         f"実験ノイズ（{len(groups)} 条件、{len(eps_n)} 波形）: 中央値 {n_med:.4f}, 5% 点 {n_p05:.4f}, 95% 点 {np.percentile(eps_n, 95):.4f}",
@@ -194,7 +303,9 @@ def main():
                      f"   {np.median(eps_flaw[a]):10.4f}  {eps_flaw[a].max():8.4f}")
     lines += ["", f"J = {J99} での各点（eps_rec の大きい順）"]
     for i in np.argsort(eps_rec[J99 - 1])[::-1]:
-        lines.append(f"  {names[i]:45s} eps_rec {eps_rec[J99-1, i]:.4f}  eps_flaw {eps_flaw[J99-1, i]:.4f}")
+        lines.append(f"  {names[i]:45s} eps_rec {eps_rec[J99-1, i]:.4f}  eps_flaw {eps_flaw[J99-1, i]:.4f}"
+                     f"  eps_rec_R {eps_rec_R[J99-1, i]:.4f}")
+    lines += lines_R
     text = "\n".join(lines)
     with open(os.path.join(out, "summary.txt"), "w", encoding="utf-8") as fh:
         fh.write(text + "\n")
