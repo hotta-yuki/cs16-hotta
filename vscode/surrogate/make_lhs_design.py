@@ -13,8 +13,8 @@ README の 3.・4. に対応する。出力は `design.csv` で、1 行が 1 条
     isorms   同じ RMS 粗さで (width, depth) だけ変える検証用。pitch は 1.50 mm 固定
 
 `isorms` の意図: 試験体 48 件は duty 比 r=w/p が 0.12-0.20 にしか無く、
-σ=h*sqrt(r(1-r)) の sqrt 部分が 0.325-0.400 とほぼ一定。つまり実験試料の中では
-RMS と深さがほとんど共線で、w と h を分離できない。等 RMS で (w,h) を振った波形が
+σ=d*sqrt(r(1-r)) の sqrt 部分が 0.325-0.400 とほぼ一定。つまり実験試料の中では
+RMS と深さがほとんど共線で、w と d を分離できない。等 RMS で (w,d) を振った波形が
 実験ノイズを超えて違うかどうかは、本番の掃引（約 28 時間）に入る前に確かめる価値が
 ある。違わなければ逆問題が不良設定で、サロゲートの精度では解決できない。
 """
@@ -119,8 +119,8 @@ def isorms_set():
     lo_d, hi_d = BOX_CELLS["depth"]
     for c_w in np.linspace(lo_w, hi_w, 5).round().astype(int):
         r = c_w / c_p
-        h_mm = ISORMS_SIGMA_UM / math.sqrt(r * (1 - r)) / 1e3
-        c_d = to_cells(h_mm)
+        d_mm = ISORMS_SIGMA_UM / math.sqrt(r * (1 - r)) / 1e3
+        c_d = to_cells(d_mm)
         if not (lo_d <= c_d <= hi_d):
             continue
         out.append((c_p, int(c_w), c_d))
@@ -172,8 +172,8 @@ def main():
 
     # specimen を先に入れる。LHS 側がこれを避けるようにして、評価用と学習用を分ける
     outside = []
-    for name, p, w, h in specimens:
-        cond = (to_cells(p), to_cells(w), to_cells(h))
+    for name, p, w, d in specimens:
+        cond = (to_cells(p), to_cells(w), to_cells(d))
         for key, c in zip(("pitch", "width", "depth"), cond):
             lo, hi = BOX_CELLS[key]
             if not (lo <= c <= hi):

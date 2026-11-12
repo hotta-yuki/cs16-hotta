@@ -115,7 +115,7 @@ def verify_condition(p, w, d, c_pitch, c_width, c_depth):
 def rms_um(c_pitch, c_width, c_depth):
     """二値表面の RMS 粗さ [um]。
 
-    σ = h * sqrt(r(1-r)), r = w/p。`specimens.csv` の RMS 列 48 件すべてが
+    σ = d * sqrt(r(1-r)), r = w/p。`specimens.csv` の RMS 列 48 件すべてが
     この式に厳密に一致する（試験体はこの軸の上で設計されている）。
     """
     r = c_width / c_pitch
