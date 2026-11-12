@@ -1,0 +1,191 @@
+\documentclass{jarticle}
+\usepackage[dvipdfmx]{graphicx}
+\usepackage{amsmath,amssymb}
+\topmargin       -10.0mm
+\oddsidemargin   -0.4mm
+\evensidemargin  -0.4mm
+\headheight       0.0mm
+\headsep          0.0mm
+\footskip        10.0mm
+%
+\textheight     260.0mm
+\textwidth      170.0mm
+%
+\setlength{\parindent}{1zw}
+%
+\usepackage{multirow}
+\usepackage{wrapfig}
+\makeatletter
+\def \fgcaption{\def \@captype{figure} \caption}
+\def \tbcaption{\def \@captype{table} \caption}
+\makeatother
+\def \figurename{Fig.}
+\def \tablename{Table}
+%
+\def\topfraction{.99}
+\def\bottomfraction{.99}
+\def\textfraction{.01}
+\def\floatpagefraction{.99}
+%
+\pagestyle{empty}
+%
+\begin{document}
+%
+\begin{center}
+ \begin{tabular}{|c|c|c|} \hline
+  \parbox{50mm}{\vspace{1mm} \centering{\Large\bf 2026/11/12}} &
+  \parbox{55mm}{\vspace{1mm} \centering{\Large\bf B4　堀田裕樹}} &
+  \parbox{50mm}{\vspace{1mm} \centering{\Large\bf No.~14}}
+  \\ [2mm] \hline
+%
+  \multicolumn{3}{|c|}{%
+   \parbox{155mm}{\centering\Large\bf
+    \vspace{1mm}
+    サロゲートモデル構築：教師データ180点での圧縮と実験の正規化スペクトル
+   }
+  }
+  \\ [2mm] \hline\hline
+%
+  \multicolumn{3}{|c|}{%
+   \parbox{155mm}{\large\vspace{1mm}
+%
+    {\Large\bf 今週の進捗要点}
+%
+    \begin{itemize}
+     \item 教師データ180点・テストデータ50点の計算が完了した
+     \item 累積寄与率99\%に必要な主成分数は，60点の15から180点で16となった
+     \item 実験の平滑面を測定し，実験の正規化スペクトルを求めた．シミュレーションとの相対差は中央値0.106であった
+     \item 主成分17でテストデータ全点の復元誤差が実験ノイズを下回った
+    \end{itemize}
+%
+   }
+  }
+  \\ [2mm] \hline
+ \end{tabular}
+\end{center}
+\par
+
+
+
+\section{教師データ180点での PCA}
+ラテン超方格法で選んだ教師データ180点の計算が完了したため，前回（60点）と同じ手順で主成分分析を行った．
+切り出しは前回の「正しいピーク」（平滑面のピーク 7.33~$\mu$s に最も近い正の山）とし，
+特徴量は平滑面で正規化した複素スペクトル $R = D / D_{\mathrm{smooth}}$ の実部・虚部（2.00--7.75~MHz，232次元）である．
+結果を Table~\ref{tab:pca} と Fig.~\ref{fig:pca} に示す．
+
+\begin{table}[htbp]
+ \centering
+ \caption{累積寄与率と必要な主成分数}
+ \label{tab:pca}
+ \begin{tabular}{c|cccc|c} \hline
+  累積寄与率 & 90\% & 95\% & 99\% & 99.9\% & 10成分での累積寄与率 \\ \hline
+  教師データ 60点  & 6 & 9  & 15          & 20 & 96.31\% \\
+  教師データ 100点 & 7 & 10 & 15          & 20 & 95.70\% \\
+  教師データ 160点 & 7 & 11 & 16          & 21 & 94.94\% \\
+  教師データ 180点 & 7 & 10 & \textbf{16} & 21 & 95.13\% \\ \hline
+ \end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+ \centering
+ \includegraphics[width=11cm]{../../vscode/surrogate/tmp_output/features/pca_compare/pca_cumulative_60_180.png}
+ \caption{教師データ60点と180点の累積寄与率（丸印は99\%に達する主成分数）}
+ \label{fig:pca}
+\end{figure}
+
+99\%に必要な主成分数は60点の15から180点で16に増えた．160点と180点で変わらないことから，主成分数は16程度で収束していると考えられる．
+また，点数が増えると同じ主成分数での累積寄与率は下がる（10成分で 96.31\% → 95.13\%）．
+60点ではデータの多様さを少なく見積もっていたといえる．
+なお，100点・160点は180点の一部を取り出したものであり，ラテン超方格の性質を満たすのは180点のみである．
+
+\section{実験の正規化スペクトル}
+\subsection{平滑面の測定}
+実験でもシミュレーションと同じ正規化を行うため，きずのない平滑面の受信波形を10回測定した．
+このうち初めの4回は最大振幅が 0.13--0.16~V と他の6回（0.51--0.60~V）の約1/4であり，ピークも約70~ns遅れていたため，
+測定条件が異なると判断して除外した．
+残りの6回の複素スペクトルの平均を $D_{\mathrm{flat}}$ とし，きず面の実験スペクトル $D_{\mathrm{exp}}$ から
+$R_{\mathrm{exp}} = D_{\mathrm{exp}} / D_{\mathrm{flat}}$ を求めた．
+きず面は既存の18条件（各10回，1条件のみ20回）の平均を用いた．
+
+\subsection{シミュレーションとの比較}
+同じ寸法のシミュレーションの $R$ と重ねた例を Fig.~\ref{fig:R} に示す．
+18条件の相対差 $\|R_{\mathrm{exp}} - R_{\mathrm{sim}}\| / \|R_{\mathrm{sim}}\|$ は 0.078--0.304（中央値 0.106）であり，
+帯域内の平均 $|R|$ の相関係数は 0.965 であった．
+実部・虚部の山と谷の周波数はほぼ全条件で一致しており，実験の正規化スペクトルはシミュレーションでよく再現されている．
+また，溝が深く幅が広いほど $|R|$ が小さくなる傾向も両者で共通であった
+（実験の平均 $|R|$ は $h=0.10$~mm で 0.89--1.02，$h=0.20$~mm で 0.44--0.91）．
+
+\begin{figure}[htbp]
+ \centering
+ (a)\includegraphics[width=15cm]{../../vscode/surrogate/tmp_output/features/exp_ex_index/complex_spectrum/compare_sim_png/exp_pitch200_width15_depth10_compare.png}\\
+ (b)\includegraphics[width=15cm]{../../vscode/surrogate/tmp_output/features/exp_ex_index/complex_spectrum/compare_sim_png/exp_pitch125_width60_depth10_compare.png}\\
+ (c)\includegraphics[width=15cm]{../../vscode/surrogate/tmp_output/features/exp_ex_index/complex_spectrum/compare_sim_png/exp_pitch125_width80_depth20_compare.png}
+ \caption{正規化スペクトルの実験（実線）とシミュレーション（破線）の比較．左が実部・虚部，右が $|R|$．
+ (a) $p=2.00$, $w=0.15$, $h=0.10$~mm（相対差 0.078），
+ (b) $p=1.25$, $w=0.60$, $h=0.10$~mm（0.096），
+ (c) $p=1.25$, $w=0.80$, $h=0.20$~mm（0.304，最大）}
+ \label{fig:R}
+\end{figure}
+
+一方で，幅 0.40~mm 以上の条件では，実験の $|R|$ がシミュレーションより 6--10\% 大きかった（Fig.~\ref{fig:R}(b)）．
+幅 0.15~mm ではほぼ一致している．
+平滑面ときず面は測定日が異なるため接触状態の違いも考えられるが，その場合は全条件に同じ倍率がかかるはずであり，
+幅によって差が分かれることは説明できない．
+実際の溝の角や底の形状がシミュレーションの矩形と異なる可能性がある．
+相対差が最大の Fig.~\ref{fig:R}(c) は，実験の繰り返し測定のばらつきも18条件中最大（0.20，他は 0.05--0.11）であり，
+測定自体が不安定であった可能性がある．
+
+\section{圧縮・復元誤差と実験ノイズ}
+教師データ180点の主成分を固定し，テストデータ50点を $J$ 成分で圧縮・復元した誤差
+$\varepsilon_{\mathrm{rec}} = \|R_{\mathrm{rec}} - R\| / \|R\|$ を，実験の繰り返し測定のばらつきと比較した．
+実験の正規化スペクトルが得られたため，今回は前回の $D$ での比較に加えて，特徴量である $R$ どうしでも比較した．
+実験ノイズを Table~\ref{tab:noise} に示す．
+
+\begin{table}[htbp]
+ \centering
+ \caption{実験ノイズ（18条件，190波形の繰り返し測定のばらつき）}
+ \label{tab:noise}
+ \begin{tabular}{l|ccc} \hline
+  & 中央値 & 5\%点 & 95\%点 \\ \hline
+  $D$ のばらつき $\|D_i - \bar{D}\| / \|\bar{D}\|$ & 0.078 & 0.032 & 0.218 \\
+  $R$ のばらつき（$D_{\mathrm{flat}}$ を6回の平均に固定） & 0.082 & 0.036 & 0.217 \\
+  $R$ のばらつき（平滑面のばらつきも含む） & 0.120 & 0.056 & 0.259 \\ \hline
+ \end{tabular}
+\end{table}
+
+平滑面6回のばらつきは 0.097 であり，これが割り算で $R$ に加わるため，平滑面のばらつきを含めると 0.120 に増える．
+以下では厳しい側の 0.082 を基準とする．
+復元誤差を Fig.~\ref{fig:rec} と Table~\ref{tab:rec} に示す．
+
+\begin{figure}[htbp]
+ \centering
+ \includegraphics[width=12cm]{../../vscode/surrogate/tmp_output/features/step6_train_ph14_first180_refpeak_test_ph25/recon_error_R.png}
+ \caption{主成分数 $J$ に対する復元誤差（教師データ180点，テストデータ50点）．破線・点線は実験ノイズの中央値}
+ \label{fig:rec}
+\end{figure}
+
+\begin{table}[htbp]
+ \centering
+ \caption{復元誤差（教師データ180点，テストデータ50点）}
+ \label{tab:rec}
+ \begin{tabular}{c|ccc} \hline
+  主成分数 $J$ & 中央値 & 最大 & ノイズ 0.082 を超える点数 \\ \hline
+  15 & 0.026 & 0.099 & 2 \\
+  16（寄与率99\%） & 0.022 & 0.097 & 1 \\
+  \textbf{17} & \textbf{0.020} & \textbf{0.055} & \textbf{0} \\
+  20 & 0.009 & 0.034 & 0 \\ \hline
+ \end{tabular}
+\end{table}
+
+$J=17$ でテストデータ50点すべての復元誤差が実験ノイズを下回った．$D$ で比較した場合も同じく $J=17$ であった．
+寄与率99\%の $J=16$ でノイズを超えた点（$p=1.51$, $w=0.48$, $h=0.31$~mm）は，設計範囲の深さの上限付近にある．
+全点が下回る $J$ は，教師データ60点では19（$D$ での比較）であり，教師データを増やすことで少ない主成分で表現できるようになった．
+
+また，$J$ が21を超えると復元誤差は急激に小さくなる．
+切り出し窓 2.048~$\mu$s と帯域 5.75~MHz の積は約12であり，特徴量に含まれる独立な成分は実数で約24個しかないためと考えられる．
+$J=17$ はこの範囲内にある．
+
+\section{今後の予定}
+主成分数を $J=17$ とし，主成分係数ごとにガウス過程回帰（Mat\'{e}rn 5/2 カーネル）を学習する．
+
+\end{document}
