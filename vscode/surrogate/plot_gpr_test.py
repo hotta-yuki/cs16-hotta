@@ -20,8 +20,11 @@ FDTD 側も同じ帯域で逆変換した波形（帯域制限 FDTD）を作り�
 書式は plot_simdata.py に合わせる（横軸は切り出し開始からの時刻 [us]、縦軸 ±1.5）。
 
 出力（vscode/surrogate/tmp_output/gpr/<model>/test_compare/）
-    <test の CSV 名>_compare.png   1 点ごとの図（R の実部・虚部、|R|、波形）
-    summary.csv                     各点の誤差（スペクトル eps_D、波形の相対誤差など）
+    R/<test の CSV 名>_R.png         R の実部・虚部（FDTD と GPR、帯は ±2σ）
+    absR/<test の CSV 名>_absR.png   |R|
+    wave/<test の CSV 名>_wave.png   波形（切り出したまま・帯域制限 FDTD・GPR）
+    summary.csv                       各点の誤差（スペクトル eps_D、波形の相対誤差など）
+    1 図 1 パネルで別々に保存する（2026-11-19 ユーザー指示）。
 """
 
 import argparse
@@ -88,7 +91,8 @@ def main():
     rows = list(csv.DictReader(open(args.design, encoding="utf-8")))
     sel = [r for r in rows if r["set"] in args.set and int(r["phase"]) in args.phase]
     out = os.path.join(mdir, "test_compare")
-    os.makedirs(out, exist_ok=True)
+    for sub in ("R", "absR", "wave"):
+        os.makedirs(os.path.join(out, sub), exist_ok=True)
 
     recs = []
     for n, r in enumerate(sel, 1):
@@ -121,45 +125,54 @@ def main():
                      "eps_D": round(eD, 5), "wave_rel_err": round(ew, 5),
                      "band_limit_err": round(eband, 5)})
 
-        fig = plt.figure(figsize=(13, 8.5), layout="constrained")
-        gs = fig.add_gridspec(2, 2, height_ratios=[1, 1])
-        a = fig.add_subplot(gs[0, 0])
-        a.fill_between(fm, R_pred.real - 2 * sd_re, R_pred.real + 2 * sd_re, color=C_RE, alpha=0.2, linewidth=0)
-        a.fill_between(fm, R_pred.imag - 2 * sd_im, R_pred.imag + 2 * sd_im, color=C_IM, alpha=0.2, linewidth=0)
-        a.plot(fm, R_true.real, color=C_RE, linewidth=2, label="Re FDTD")
-        a.plot(fm, R_pred.real, color=C_RE, linewidth=1.3, linestyle="--", label="Re GPR")
-        a.plot(fm, R_true.imag, color=C_IM, linewidth=2, label="Im FDTD")
-        a.plot(fm, R_pred.imag, color=C_IM, linewidth=1.3, linestyle="--", label="Im GPR")
-        a.set_xlabel("周波数 [MHz]")
-        a.set_ylabel("R = D / D_smooth")
-        a.set_title("正規化スペクトル R（実部・虚部、帯は GPR の ±2σ）")
-        a.legend(frameon=False, ncol=2, fontsize=9)
-        _style(a)
+        base = fn.replace(".csv", "")
+        head = f"{base}  p={P[0,0]:.2f} w={P[0,1]:.2f} d={P[0,2]:.2f} mm"
 
-        b = fig.add_subplot(gs[0, 1])
-        b.plot(fm, np.abs(R_true), color="#0b0b0b", linewidth=2, label="FDTD")
-        b.plot(fm, np.abs(R_pred), color="#0b0b0b", linewidth=1.3, linestyle="--", label="GPR")
-        b.set_xlabel("周波数 [MHz]")
-        b.set_ylabel("|R|")
-        b.set_title("|R|")
-        b.legend(frameon=False, fontsize=9)
-        _style(b)
+        # 図 1: R の実部・虚部
+        fig, ax = plt.subplots(figsize=(8, 4))
+        ax.fill_between(fm, R_pred.real - 2 * sd_re, R_pred.real + 2 * sd_re, color=C_RE, alpha=0.2, linewidth=0)
+        ax.fill_between(fm, R_pred.imag - 2 * sd_im, R_pred.imag + 2 * sd_im, color=C_IM, alpha=0.2, linewidth=0)
+        ax.plot(fm, R_true.real, color=C_RE, linewidth=2, label="Re FDTD")
+        ax.plot(fm, R_pred.real, color=C_RE, linewidth=1.3, linestyle="--", label="Re GPR")
+        ax.plot(fm, R_true.imag, color=C_IM, linewidth=2, label="Im FDTD")
+        ax.plot(fm, R_pred.imag, color=C_IM, linewidth=1.3, linestyle="--", label="Im GPR")
+        ax.set_xlabel("周波数 [MHz]")
+        ax.set_ylabel("R = D / D_smooth")
+        ax.set_title(f"{head}\nR の実部・虚部（帯は GPR の ±2σ）  eps_D = {eD:.3f}", fontsize=10)
+        ax.legend(frameon=False, ncol=2, fontsize=8)
+        _style(ax)
+        fig.tight_layout()
+        fig.savefig(os.path.join(out, "R", f"{base}_R.png"), dpi=150)
+        plt.close(fig)
 
-        c = fig.add_subplot(gs[1, :])
-        c.plot(t_plot, seg, color=C_RAW, linewidth=1, label="FDTD（切り出したまま）")
-        c.fill_between(t_plot, w_pr - 2 * sd_w, w_pr + 2 * sd_w, color=C_RE, alpha=0.2, linewidth=0)
-        c.plot(t_plot, w_bl, color="#0b0b0b", linewidth=1.6, label="FDTD（2.00–7.75 MHz に帯域制限）")
-        c.plot(t_plot, w_pr, color=C_RE, linewidth=1.3, linestyle="--", label="GPR（同じ帯域、帯は ±2σ）")
-        c.set_xlabel("Time [us] (from cut start)")
-        c.set_ylabel("Amplitude")
-        c.set_ylim(-1.5, 1.5)
-        c.set_title(f"波形（相対誤差 {ew:.3f}、帯域制限による差 {eband:.3f}）")
-        c.legend(frameon=False, fontsize=9, loc="upper right")
-        _style(c)
+        # 図 2: |R|
+        fig, ax = plt.subplots(figsize=(8, 4))
+        ax.plot(fm, np.abs(R_true), color="#0b0b0b", linewidth=2, label="FDTD")
+        ax.plot(fm, np.abs(R_pred), color="#0b0b0b", linewidth=1.3, linestyle="--", label="GPR")
+        ax.set_xlabel("周波数 [MHz]")
+        ax.set_ylabel("|R|")
+        ax.set_title(f"{head}\n|R|  eps_D = {eD:.3f}", fontsize=10)
+        ax.legend(frameon=False, fontsize=8)
+        _style(ax)
+        fig.tight_layout()
+        fig.savefig(os.path.join(out, "absR", f"{base}_absR.png"), dpi=150)
+        plt.close(fig)
 
-        fig.suptitle(f"{fn}   p={P[0,0]:.2f} w={P[0,1]:.2f} d={P[0,2]:.2f} mm   "
-                     f"スペクトル誤差 eps_D = {eD:.3f}", fontsize=12)
-        fig.savefig(os.path.join(out, fn.replace(".csv", "_compare.png")), dpi=130)
+        # 図 3: 波形（plot_simdata.py の書式）
+        fig, ax = plt.subplots(figsize=(8, 4))
+        ax.plot(t_plot, seg, color=C_RAW, linewidth=1, label="FDTD（切り出したまま）")
+        ax.fill_between(t_plot, w_pr - 2 * sd_w, w_pr + 2 * sd_w, color=C_RE, alpha=0.2, linewidth=0)
+        ax.plot(t_plot, w_bl, color="#0b0b0b", linewidth=1.6, label="FDTD（2.00–7.75 MHz に帯域制限）")
+        ax.plot(t_plot, w_pr, color=C_RE, linewidth=1.3, linestyle="--", label="GPR（同じ帯域、帯は ±2σ）")
+        ax.set_xlabel("Time [us] (from cut start)")
+        ax.set_ylabel("Amplitude")
+        ax.set_ylim(-1.5, 1.5)
+        ax.set_title(f"{head}\n波形  相対誤差 {ew:.3f}（帯域制限による差 {eband:.3f}）", fontsize=10)
+        ax.legend(frameon=False, fontsize=8, loc="upper right")
+        ax.grid(True)
+        _style(ax)
+        fig.tight_layout()
+        fig.savefig(os.path.join(out, "wave", f"{base}_wave.png"), dpi=150)
         plt.close(fig)
         print(f"  [{n:2d}/{len(sel)}] {fn}  eps_D {eD:.4f}  波形 {ew:.4f}", flush=True)
 
