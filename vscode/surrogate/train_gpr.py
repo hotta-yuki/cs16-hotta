@@ -15,7 +15,8 @@
    (p, w, d) のままだと test の誤差 最大 0.332 / 中央値 0.038 だったのが、(1/p, w/p, d) で
    最大 0.200 / 中央値 0.028 に下がった（2026-11-17、train 180 点・J = 17・test 50 点）
 2. 学習データの特徴量 X を PCA の上位 J 成分に射影し、係数 z_1..z_J を得る
-3. z_j ごとに GPR（Matérn 5/2、p, w, d ごとの長さスケール ARD、ノイズ項）を 1 本ずつ学習
+3. z_j ごとに GPR（Matérn 5/2、p, w, d ごとの長さスケール ARD、ノイズ項）を 1 本ずつ学習。
+   中身は scikit-learn の GaussianProcessRegressor（gpr.py が包んでいる）
 4. 予測した係数を PCA の逆変換で R に戻し、真の R（射影する前）と比べる
    - 学習データの一点抜き交差検証（LOO。ハイパーパラメータは全点で決めたものに固定）
    - test（学習に使っていない LHS 点）
@@ -26,7 +27,8 @@
 
 出力（vscode/surrogate/tmp_output/gpr/<train>_J<J>[_<inputs>]/。pwd のときは接尾辞なし）
     summary.txt       まずこれを読む。長さスケール、誤差、ノイズとの比較、点ごとの誤差
-    model.npz         逆推定（README 9）で使う学習済みモデル
+    model.joblib      逆推定（README 9）で使う学習済みモデル（sklearn の GPR 17 本。joblib.load で読む）
+    model.npz         同じモデルのハイパーパラメータと PCA・正規化の情報（sklearn なしでも読める控え）
     parity.png        test の z_j 予測 vs 真値（上位 6 成分、誤差棒は ±2σ）
     error_points.png  test 各点の eps_D と PCA 打ち切り誤差、実験ノイズ
     error_region.png  (p, w, d) ごとの誤差の分布（LOO 180 点と test）
@@ -40,6 +42,7 @@ import os
 import sys
 import time
 
+import joblib
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -161,7 +164,8 @@ def main():
     Z_loo = np.stack([a for a, _ in loo], 1)
     pred = [m.predict(U_te, return_std=True) for m in models]
     Z_pr = np.stack([a for a, _ in pred], 1)
-    S_pr = np.stack([b for _, b in pred], 1)
+    S_pr = np.stack([b for _, b in pred], 1)       # sklearn の既定（ノイズ項 sn2 込み）
+    S_pr_f = np.stack([m.predict(U_te, return_std=True, include_noise=False)[1] for m in models], 1)
 
     R_tr, R_te = to_R(X_tr, K), to_R(X_te, K)
     R_loo = to_R(mean + Z_loo @ V, K)
@@ -185,6 +189,7 @@ def main():
     q2 = 1 - ((Z_pr - Z_te) ** 2).sum(0) / ((Z_te - Z_te.mean(0)) ** 2).sum(0)
     q2_loo = 1 - ((Z_loo - Z_tr) ** 2).sum(0) / ((Z_tr - Z_tr.mean(0)) ** 2).sum(0)
     cover = (np.abs(Z_pr - Z_te) <= 2 * S_pr).mean(0)
+    cover_f = (np.abs(Z_pr - Z_te) <= 2 * S_pr_f).mean(0)
 
     suffix = "" if args.inputs == "pwd" else f"_{args.inputs}"
     out = os.path.join(args.sim_dir, "gpr", f"{args.train}_J{J}{suffix}")
@@ -198,6 +203,8 @@ def main():
              ell=np.stack([m.ell for m in models]), sf2=np.array([m.sf2 for m in models]),
              sn2=np.array([m.sn2 for m in models]), y_mean=np.array([m.y_mean for m in models]),
              y_std=np.array([m.y_std for m in models]), alpha=np.stack([m.alpha for m in models]))
+    # sklearn の学習済みモデル本体（逆推定ではこちらを読めば predict がそのまま使える）
+    joblib.dump({"models": models, "inputs": args.inputs, "J": J}, os.path.join(out, "model.joblib"))
 
     # ---- summary.txt
     def frac_below(e, lv):
@@ -225,14 +232,15 @@ def main():
           "（= 値 × 範囲の幅）。短いほどその変数に敏感。",
           "  上限 100 に張り付いた変数は、その成分にはほぼ効いていない。",
           "  Q2 = 1 - Σ(予測誤差)^2 / Σ(偏差)^2。cover = |誤差| <= 2σ に入った test 点の割合（理想 0.95）",
+          "  cover は sklearn の σ（ノイズ項込み）、cover_f は潜在関数 f の σ（ノイズ項なし）で数えたもの",
           "",
-          "   j  寄与率[%]   ell_1   ell_2   ell_3  |  元の単位 ell_1 ell_2 ell_3  |  sn2/sf2    Q2_LOO  Q2_test  cover"]
+          "   j  寄与率[%]   ell_1   ell_2   ell_3  |  元の単位 ell_1 ell_2 ell_3  |  sn2/sf2    Q2_LOO  Q2_test  cover  cover_f"]
     for j, m in enumerate(models):
         lm = m.ell * (box_of(args.inputs)[1] - box_of(args.inputs)[0])
         flag = " *" if m.at_bound else ""
         L.append(f"  {j+1:2d}  {ratio[j]*100:8.3f}  {m.ell[0]:6.3f}  {m.ell[1]:6.3f}  {m.ell[2]:6.3f}  |"
                  f"  {lm[0]:8.3f}  {lm[1]:8.3f}  {lm[2]:8.3f}  |  {m.sn2/m.sf2:.1e}  {q2_loo[j]:7.3f}  {q2[j]:7.3f}"
-                 f"  {cover[j]:5.2f}{flag}")
+                 f"  {cover[j]:5.2f}  {cover_f[j]:5.2f}{flag}")
     L.append("  * は探索範囲の端に張り付いたハイパーパラメータがある成分")
     L += ["", "---- test 各点（eps_D の大きい順）----",
           "  ファイル                                      p      w      d     eps_D   打ち切り  eps_R"]
