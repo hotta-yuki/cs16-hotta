@@ -8,6 +8,7 @@
 numpy==1.26.4
 scipy==1.17.1
 pandas==3.0.3
+scikit-learn==1.7.1      # サロゲートの GPR（vscode/surrogate/）。2026-11-19 追加
 
 # --- 作図 ---
 matplotlib==3.10.9

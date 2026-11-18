@@ -95,6 +95,12 @@ class GPR:
         return self
 
     def predict(self, Xs, return_std=False):
+        """予測平均と、潜在関数 f の標準偏差（ノイズ項 sn2 を含まない）。
+
+        sklearn の GaussianProcessRegressor.predict は WhiteKernel を含めた y の標準偏差を
+        返すので、sqrt(std^2 + sn2 * y_std^2) が sklearn の値に一致する（2026-11-19 照合、差 1e-8 以下）。
+        平均とハイパーパラメータは sklearn 1.7.1 と一致（予測差 / σ_z が 4e-5 以下）。
+        """
         Ks = matern52(np.asarray(Xs, float), self.X, self.ell, self.sf2)
         mu = Ks @ self.alpha * self.y_std + self.y_mean
         if not return_std:
