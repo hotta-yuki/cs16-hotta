@@ -76,6 +76,7 @@ INPUTS = {
     "pwd":       (("p", "w", "d"),     lambda P: P),
     "invp":      (("1/p", "w", "d"),   lambda P: np.c_[1 / P[:, 0], P[:, 1], P[:, 2]]),
     "invp_duty": (("1/p", "w/p", "d"), lambda P: np.c_[1 / P[:, 0], P[:, 1] / P[:, 0], P[:, 2]]),
+    "duty":      (("p", "w/p", "d"),   lambda P: np.c_[P[:, 0], P[:, 1] / P[:, 0], P[:, 2]]),
 }
 
 
@@ -127,7 +128,7 @@ def main():
     ap.add_argument("--phase", nargs="+", type=int, default=[2, 5])
     ap.add_argument("--sim-dir", default=os.path.join(HERE, "tmp_output"))
     ap.add_argument("--inputs", choices=list(INPUTS), default="invp_duty",
-                    help="GPR の入力。pwd = (p, w, d)、invp = (1/p, w, d)、invp_duty = (1/p, w/p, d)")
+                    help="GPR の入力。pwd = (p, w, d)、invp = (1/p, w, d)、invp_duty = (1/p, w/p, d)、duty = (p, w/p, d)")
     ap.add_argument("--restarts", type=int, default=8, help="ハイパーパラメータ最適化の初期値の数 - 1")
     args = ap.parse_args()
 
