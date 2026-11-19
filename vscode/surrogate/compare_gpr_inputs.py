@@ -14,6 +14,8 @@
     eps_pwd_vs_invp_duty.png  点ごとの eps_D を (p, w, d) と (1/p, w/p, d) で比べた散布図
     parity_z<j>.png         z_j の予測値と真値（j = 1..6）
     summary.csv             各点・各入力の eps_D
+    spectra/Re|Im|absR/<test の CSV 名>_<Re|Im|absR>.png
+                            test 各点の R を FDTD・(p, w, d)・(1/p, w/p, d) で重ねた図
 """
 
 import argparse
@@ -186,6 +188,38 @@ def main():
         ax.legend(frameon=False, fontsize=8, loc="upper left")
         _style(ax)
         save(fig, f"parity_z{j+1}.png")
+
+    # ---- 6. test 各点のスペクトル：FDTD と (p, w, d)・(1/p, w/p, d) の予測（1 図 1 パネル）
+    fm = freq / 1e6
+    pair = [(k, lab, c) for k, lab, c, _ in VARIANTS if k in ("pwd", "invp_duty")]
+    Rp = {k: to_R(mean + res[k]["Z"] @ V, K) for k, *_ in pair}
+    Sd = {k: np.sqrt((res[k]["S"] ** 2) @ (V ** 2)) for k, *_ in pair}   # X 空間の ±σ
+    sdir = os.path.join(out, "spectra")
+    parts = [("Re", "Re R", lambda r: r.real, lambda s: s[:K]),
+             ("Im", "Im R", lambda r: r.imag, lambda s: s[K:]),
+             ("absR", "|R|", np.abs, None)]
+    for sub, *_ in parts:
+        os.makedirs(os.path.join(sdir, sub), exist_ok=True)
+    for i in range(len(names)):
+        base = os.path.splitext(os.path.basename(names[i]))[0]
+        head = f"{base}  p={P_te[i,0]:.2f} w={P_te[i,1]:.2f} d={P_te[i,2]:.2f} mm"
+        for sub, ylab, f, sdf in parts:
+            fig, ax = plt.subplots(figsize=(8, 4))
+            ax.plot(fm, f(R_te[i]), color="#0b0b0b", linewidth=2, label="FDTD")
+            for k, lab, c in pair:
+                y = f(Rp[k][i])
+                if sdf is not None:
+                    s = sdf(Sd[k][i])
+                    ax.fill_between(fm, y - 2 * s, y + 2 * s, color=c, alpha=0.15, linewidth=0)
+                ax.plot(fm, y, color=c, linewidth=1.4, linestyle="--",
+                        label=f"GPR {lab}  eps_D {res[k]['eD'][i]:.3f}")
+            ax.set_xlabel("周波数 [MHz]")
+            ax.set_ylabel(ylab)
+            band = "（帯は ±2σ）" if sdf is not None else ""
+            ax.set_title(f"{head}\n{ylab}{band}", fontsize=10)
+            ax.legend(frameon=False, fontsize=8)
+            _style(ax)
+            save(fig, os.path.join("spectra", sub, f"{base}_{sub}.png"))
 
     print(f"出力: {out}")
 
