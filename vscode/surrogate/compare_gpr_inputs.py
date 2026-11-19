@@ -16,7 +16,7 @@
     parity_z<j>.png         z_j の予測値と真値（j = 1..6）
     summary.csv             各点・各入力の eps_D
     spectra/Re|Im|absR/<test の CSV 名>_<Re|Im|absR>.png
-                            test 各点の R を FDTD・(p, w, d)・(p, w/p, d)・(1/p, w/p, d) で重ねた図
+                            test 各点の R を FDTD と 4 通りの入力の GPR で重ねた図
 """
 
 import argparse
@@ -193,7 +193,7 @@ def main():
 
     # ---- 6. test 各点のスペクトル：FDTD と (p, w, d)・(1/p, w/p, d) の予測（1 図 1 パネル）
     fm = freq / 1e6
-    pair = [(k, lab, c) for k, lab, c, _ in VARIANTS if k in ("pwd", "duty", "invp_duty")]
+    pair = [(k, lab, c) for k, lab, c, _ in VARIANTS if k in ("pwd", "invp", "duty", "invp_duty")]
     Rp = {k: to_R(mean + res[k]["Z"] @ V, K) for k, *_ in pair}
     Sd = {k: np.sqrt((res[k]["S"] ** 2) @ (V ** 2)) for k, *_ in pair}   # X 空間の ±σ
     sdir = os.path.join(out, "spectra")
