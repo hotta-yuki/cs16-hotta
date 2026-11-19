@@ -15,6 +15,7 @@
 %
 \usepackage{multirow}
 \usepackage{wrapfig}
+\usepackage{float}
 \makeatletter
 \def \fgcaption{\def \@captype{figure} \caption}
 \def \tbcaption{\def \@captype{table} \caption}
@@ -90,55 +91,159 @@ $\sigma_f^2$ は出力の変動の大きさである．第2項は各点に独立
 
 
 \section{入力を変えたときの予測スペクトルの変化}
-テストデータの $|R|$ を，FDTD（黒），入力 $(p, w, d)$ の GPR（橙），入力 $(1/p, w/p, d)$ の GPR（青）で比べる．
+テストデータの予測を，入力 $(p, w, d)$ の GPR（橙）と入力 $(1/p, w/p, d)$ の GPR（青）で比べる．
+黒は FDTD の真値である．
+
+\subsection{全体の傾向}
+Fig.~\ref{fig:scatter} は，テストデータ50点それぞれの予測の誤差を2つの入力で比べたもので，色はピッチを表す．
+対角線より下の点は $(1/p, w/p, d)$ で予測が良くなった点であり，50点中39点がこれにあたる．
+誤差の大きい右上の領域にあるのはほとんどがピッチの小さい点で，この領域で改善の幅が大きい．
+一方，悪化した11点のうち6点は $d \le 0.07$~mm の浅い溝で，いずれも対角線のすぐ上にあり悪化はわずかである．
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=9cm]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/eps_pwd_vs_invp_duty.png}
+ \caption{テスト点ごとの予測誤差の比較（横：$(p, w, d)$，縦：$(1/p, w/p, d)$，色：ピッチ，破線：実験ノイズの中央値）}
+ \label{fig:scatter}
+\end{figure}
 
 \subsection{ピッチの小さい点：山・谷の位置と高さが FDTD に近づく}
-Fig.~\ref{fig:p119} と Fig.~\ref{fig:p139} はピッチの小さい点である．
 Fig.~\ref{fig:p119}（$p=1.19$~mm）では，$(p, w, d)$ の予測は 3.3~MHz に FDTD にない高い山をつくり，
 4.4~MHz の山を低く見積もっている．$(1/p, w/p, d)$ ではこの山が下がり，4.4~MHz の山も FDTD に近づいた．
-Fig.~\ref{fig:p139}（$p=1.39$~mm，$d=0.32$~mm）では，$(p, w, d)$ の予測は 4.5~MHz の深い谷をほぼ再現できていないが，
-$(1/p, w/p, d)$ では谷が現れ，3--3.5~MHz の山・谷の位置も FDTD 側に寄った．
-ただし 3~MHz 付近の谷の位置が 0.1~MHz 程度高周波側にずれる点は，どちらの入力でも残っている．
+同じ点の実部・虚部（Fig.~\ref{fig:p119re}, \ref{fig:p119im}）を見ると，ずれは 3--3.7~MHz に集中しており，
+$(p, w, d)$ では虚部の 3.6~MHz の谷が深すぎる．$(1/p, w/p, d)$ ではこのずれが小さくなり，予測の $\pm 2\sigma$ の帯も狭くなった．
 
-\begin{figure}[htbp]
+\begin{figure}[H]
  \centering
- \includegraphics[width=15cm]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/absR/kukei_cupy_pitch119_width50_depth25_absR.png}
+ \includegraphics[width=13cm]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/absR/kukei_cupy_pitch119_width50_depth25_absR.png}
  \caption{$|R|$ の比較（$p=1.19$, $w=0.50$, $d=0.25$~mm）}
  \label{fig:p119}
 \end{figure}
 
-\begin{figure}[htbp]
- \centering
- \includegraphics[width=15cm]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/absR/kukei_cupy_pitch139_width23_depth32_absR.png}
- \caption{$|R|$ の比較（$p=1.39$, $w=0.23$, $d=0.32$~mm）}
- \label{fig:p139}
+\begin{figure}[H]
+ \begin{minipage}{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/Re/kukei_cupy_pitch119_width50_depth25_Re.png}
+  \caption{$\mathrm{Re}\,R$（$p=1.19$, $w=0.50$, $d=0.25$~mm，帯は $\pm 2\sigma$）}
+  \label{fig:p119re}
+ \end{minipage}\hfill
+ \begin{minipage}{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/Im/kukei_cupy_pitch119_width50_depth25_Im.png}
+  \caption{$\mathrm{Im}\,R$（$p=1.19$, $w=0.50$, $d=0.25$~mm，帯は $\pm 2\sigma$）}
+  \label{fig:p119im}
+ \end{minipage}
 \end{figure}
 
-\subsection{ピッチの大きい点：入力によらずよく一致する}
-Fig.~\ref{fig:p167}（$p=1.67$~mm）では，どちらの入力でも予測は FDTD とよく重なる．
-$(p, w, d)$ で見られる 4.4~MHz 付近の小さなふくらみと 5.3~MHz 付近の落ち込みが，$(1/p, w/p, d)$ ではなくなり，
-細部がさらに FDTD に近づいた．
+Fig.~\ref{fig:p139}（$p=1.39$~mm，$d=0.32$~mm）では，$(p, w, d)$ の予測は 4.5~MHz の深い谷をほぼ再現できていないが，
+$(1/p, w/p, d)$ では谷が現れ，3--3.5~MHz の山・谷の位置も FDTD 側に寄った．
+ただし 3~MHz 付近の谷が 0.1~MHz 程度高周波側にずれる点は，どちらの入力でも残っている．
 
-\begin{figure}[htbp]
+Fig.~\ref{fig:p116}（$p=1.16$~mm，$d=0.14$~mm）では，FDTD の $|R|$ は 2--4.8~MHz で 1 付近を細かく振動する．
+$(p, w, d)$ の予測は 3.2~MHz と 4.0~MHz に FDTD にない大きな山，3.6~MHz に谷をつくり，振動が大きすぎる．
+$(1/p, w/p, d)$ ではこの偽の振動が消え，5.3~MHz の谷の位置も一致した．
+ただし FDTD の細かい振動や 5.7~MHz，6.3~MHz の山はならされてしまい，どちらの入力でも再現できていない．
+
+
+\begin{figure}[H]
+ \begin{minipage}{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/absR/kukei_cupy_pitch139_width23_depth32_absR.png}
+  \caption{$|R|$（$p=1.39$, $w=0.23$, $d=0.32$~mm）}
+  \label{fig:p139}
+ \end{minipage}\hfill
+ \begin{minipage}{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/absR/kukei_cupy_pitch116_width20_depth14_absR.png}
+  \caption{$|R|$（$p=1.16$, $w=0.20$, $d=0.14$~mm）}
+  \label{fig:p116}
+ \end{minipage}
+\end{figure}
+
+Fig.~\ref{fig:p151}（$p=1.51$~mm，$d=0.31$~mm）では，2.6~MHz の山の高さ，3.0~MHz の谷の深さ，
+7~MHz 付近の山の高さが $(1/p, w/p, d)$ で FDTD に近づいた．
+2.1~MHz 付近の谷はどちらの入力でも再現できていない．
+
+
+\begin{figure}[H]
  \centering
- \includegraphics[width=15cm]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/absR/kukei_cupy_pitch167_width46_depth21_absR.png}
- \caption{$|R|$ の比較（$p=1.67$, $w=0.46$, $d=0.21$~mm）}
- \label{fig:p167}
+ \includegraphics[width=13cm]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/absR/kukei_cupy_pitch151_width48_depth31_absR.png}
+ \caption{$|R|$ の比較（$p=1.51$, $w=0.48$, $d=0.31$~mm）}
+ \label{fig:p151}
+\end{figure}
+
+\subsection{ピッチの大きい点：もともとよく合い，細部がさらに近づく}
+Fig.~\ref{fig:p167}（$p=1.67$~mm）では，どちらの入力でも予測は FDTD とよく重なる．
+$(p, w, d)$ で見られる 4.4~MHz 付近の小さなふくらみと 5.3~MHz 付近の落ち込みが，$(1/p, w/p, d)$ ではなくなった．
+Fig.~\ref{fig:p206}（$p=2.06$~mm，$d=0.32$~mm）では，$(p, w, d)$ の予測は 3.6~MHz の山が高周波側にずれ，
+4.9~MHz の谷が浅いが，$(1/p, w/p, d)$ では谷の深さと位置が FDTD と一致した．
+
+\begin{figure}[H]
+ \begin{minipage}{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/absR/kukei_cupy_pitch167_width46_depth21_absR.png}
+  \caption{$|R|$（$p=1.67$, $w=0.46$, $d=0.21$~mm）}
+  \label{fig:p167}
+ \end{minipage}\hfill
+ \begin{minipage}{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/absR/kukei_cupy_pitch206_width40_depth32_absR.png}
+  \caption{$|R|$（$p=2.06$, $w=0.40$, $d=0.32$~mm）}
+  \label{fig:p206}
+ \end{minipage}
 \end{figure}
 
 \subsection{改善しなかった点}
 Fig.~\ref{fig:p112}（$p=1.12$~mm，$d=0.10$~mm）は，入力を変えても改善しなかった点である．
 FDTD の $|R|$ は 3--4.5~MHz でほぼ平らで，5.1~MHz に谷がある．
 どちらの入力でも予測は 4~MHz に FDTD にない山，4.5~MHz に谷をつくっており，$(1/p, w/p, d)$ ではこの山がかえって高くなった．
-5.1~MHz の谷の位置も再現できていない．
-設計範囲の端（$p \approx 1.1$~mm）にあり，近くの教師データから補間できていないためと考えられる．
+5.1~MHz の谷の位置も再現できていない．設計範囲の端（$p \approx 1.1$~mm）にあり，近くの教師データから補間できていないためと考えられる．
 
-\begin{figure}[htbp]
- \centering
- \includegraphics[width=15cm]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/absR/kukei_cupy_pitch112_width36_depth10_absR.png}
- \caption{$|R|$ の比較（$p=1.12$, $w=0.36$, $d=0.10$~mm）}
- \label{fig:p112}
+Fig.~\ref{fig:p123}（$p=1.23$~mm，$d=0.07$~mm）は浅い溝の例である．
+FDTD の $|R|$ は 4.4~MHz まではほぼ平らだが，$(1/p, w/p, d)$ の予測は 3.3~MHz と 4.0~MHz に小さな山をつくり，わずかに悪化した．
+6.6~MHz の山と 7.1~MHz の深い谷は，どちらの入力でも再現できていない．
+
+\begin{figure}[H]
+ \begin{minipage}{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/absR/kukei_cupy_pitch112_width36_depth10_absR.png}
+  \caption{$|R|$（$p=1.12$, $w=0.36$, $d=0.10$~mm）}
+  \label{fig:p112}
+ \end{minipage}\hfill
+ \begin{minipage}{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/absR/kukei_cupy_pitch123_width25_depth7_absR.png}
+  \caption{$|R|$（$p=1.23$, $w=0.25$, $d=0.07$~mm）}
+  \label{fig:p123}
+ \end{minipage}
 \end{figure}
+
+
+\section{まとめ}
+\subsection*{変化した点}
+\begin{itemize}
+ \item ピッチの小さい点で，3--4.5~MHz の山・谷の位置と高さが FDTD に近づいた（Fig.~\ref{fig:p119}--\ref{fig:p151}）．
+ \item $(p, w, d)$ の予測に現れていた，FDTD にない大きな振動が消えた（Fig.~\ref{fig:p116}）．
+ \item ピッチの大きい点でも，谷の深さなどの細部が FDTD に近づいた（Fig.~\ref{fig:p167}, \ref{fig:p206}）．
+ \item 改善した点では，予測の $\pm 2\sigma$ の帯も狭くなった（Fig.~\ref{fig:p119re}, \ref{fig:p119im}）．
+\end{itemize}
+
+\subsection*{メリット}
+\begin{itemize}
+ \item 入力を変換するだけで，FDTD の計算を追加せずに予測が良くなる．50点中39点で改善した．
+ \item 回折の条件（$1/p$）と溝の占める割合（$w/p$）という物理的な意味のある量を入力にしたため，
+       $p$ の小さい側でスペクトルが速く変わることを GPR が1つの長さスケールで扱えるようになった．
+ \item 改善の幅は，もともと予測の悪かったピッチの小さい点で大きい．
+\end{itemize}
+
+\subsection*{デメリット・残った課題}
+\begin{itemize}
+ \item 設計範囲の端（$p \approx 1.1$~mm）では改善せず，かえって偽の山が大きくなる点がある（Fig.~\ref{fig:p112}）．
+       入力の変換では教師データの不足は補えない．
+ \item 浅い溝（$d \le 0.07$~mm）では，平らなはずのスペクトルに小さな山が加わり，わずかに悪化する点がある（Fig.~\ref{fig:p123}）．
+ \item 細かい振動や高周波側の鋭い谷は，どちらの入力でも平滑化されて再現できない（Fig.~\ref{fig:p116}, \ref{fig:p123}）．
+ \item $1/p$ に変換すると $p$ の小さい側が入力空間で引き伸ばされるため，同じ点数でもこの領域の教師データが相対的に疎になる．
+\end{itemize}
 
 
 \section{今後の予定}
