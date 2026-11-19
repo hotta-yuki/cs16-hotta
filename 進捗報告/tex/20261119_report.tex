@@ -52,10 +52,10 @@
     {\Large\bf 今週の進捗要点}
 %
     \begin{itemize}
-     \item 主成分係数 $z_1, \dots, z_{17}$ ごとにガウス過程回帰（GPR）を学習した
-     \item 入力を $(p, w, d)$ から $(1/p, w/p, d)$ に変えると，テストデータの誤差の最大が 0.332 から 0.200 に下がった
-     \item テストデータ50点の誤差の中央値は 0.028 で，50点中40点が実験ノイズ（中央値 0.078）を下回った
-     \item 誤差がノイズを上回る10点のうち9点は $p < 1.4$~mm に集中しており，この領域の教師データを追加する
+     \item 主成分係数 $z_1, \dots, z_{17}$ ごとにガウス過程回帰（GPR）を学習し，$(p, w, d)$ から $R$ のスペクトルを予測できるようにした
+     \item GPR の入力を $(p, w, d)$ から $(1/p, w/p, d)$ に変えると，ピッチの小さい点で 3--4.5~MHz の山・谷の予測が FDTD に近づいた
+     \item ピッチの大きい点では，入力によらず予測は FDTD とよく一致する
+     \item $p \approx 1.1$~mm の一部の点では入力を変えても改善せず，この領域の教師データが不足している
     \end{itemize}
 %
    }
@@ -69,120 +69,83 @@
 
 \section{ガウス過程回帰の構成}
 前回決めた主成分数 $J=17$ で，教師データ180点の特徴量（$R = D / D_{\mathrm{smooth}}$ の実部・虚部，232次元）を
-主成分係数 $z_1, \dots, z_{17}$ に圧縮した（累積寄与率 99.46\%）．
-この係数ごとに GPR を1本ずつ，計17本学習した．
-実装には scikit-learn 1.7.1 の GaussianProcessRegressor を用いた．
-
+主成分係数 $z_1, \dots, z_{17}$ に圧縮し，係数ごとに GPR を1本ずつ，計17本学習した（scikit-learn 1.7.1）．
 カーネルは
 \begin{equation}
  k(\boldsymbol{x}, \boldsymbol{x}') = \sigma_f^2 \, \mathrm{Mat\acute{e}rn}_{5/2}(r) + \sigma_n^2 \, \delta(\boldsymbol{x}, \boldsymbol{x}'),
  \qquad
  r^2 = \sum_{k=1}^{3} \left( \frac{x_k - x'_k}{\ell_k} \right)^2
 \end{equation}
-とした．$\ell_k$ は入力の変数ごとの長さスケール（ARD），$\sigma_n^2$ は数値誤差を吸収するノイズ項である．
-ハイパーパラメータ $\ell_1, \ell_2, \ell_3, \sigma_f^2, \sigma_n^2$ は対数周辺尤度の最大化で決め，
-局所解を避けるため初期値を9通り変えて最もよいものを採用した．
-学習時間は17本で約30秒である．
-
-予測した係数は PCA の逆変換で $R$ に戻し，圧縮前の真の $R$ と比べた．
-誤差は前回の復元誤差と同じ尺度
-\begin{equation}
- \varepsilon_D = \frac{\| (R_{\mathrm{pred}} - R) \, D_{\mathrm{smooth}} \|}{\| R \, D_{\mathrm{smooth}} \|}
-\end{equation}
-とし，実験の繰り返し測定のばらつき（中央値 0.078）と比べる．
-評価には，学習に使っていないテストデータ50点と，教師データ180点の一点抜き交差検証（LOO）を用いた．
+とした．第1項は「入力が近い点どうしは出力も近い」というなめらかさを表し，$\ell_k$ は入力の変数ごとの長さスケール（ARD），
+$\sigma_f^2$ は出力の変動の大きさである．第2項は各点に独立に乗る小さな誤差（離散化や圧縮の残差）を吸収する．
+ハイパーパラメータは対数周辺尤度の最大化で決めた．
+予測した係数は PCA の逆変換で $R$ に戻し，学習に使っていないテストデータ50点の FDTD の $R$ と比べた．
 
 
 \section{入力変数の選び方}
-はじめに $(p, w, d)$ をそのまま入力とすると，誤差は $p$ が小さいほど大きくなった．
-回折の条件 $\sin\theta = m\lambda / p$ は $1/p$ で効くため，$p$ が小さい側ほど同じ $\Delta p$ で応答が速く変わる．
-一方，GPR の長さスケールは入力の範囲全体で1つの値であるため，この速い変化に追従できない．
-そこで入力を変換して比較した（Table~\ref{tab:inputs}）．
+回折の条件 $\sin\theta = m\lambda / p$ は $1/p$ で効くため，$p$ が小さい側ほど同じ $\Delta p$ でスペクトルが速く変わる．
+一方，GPR の長さスケールは入力の範囲全体で1つの値であるため，$p$ をそのまま入力にするとこの速い変化に追従できない．
+そこで入力を $1/p$ に変え，さらに幅は溝の占める割合（デューティ比）$w/p$ で与えた．
 各入力は，設計範囲（$p$ 1.10--2.20~mm，$w$ 0.10--0.50~mm，$d$ 0.02--0.32~mm）を変換した範囲で $[0, 1]$ に正規化した．
 
-\begin{table}[htbp]
- \centering
- \caption{入力変数ごとのテストデータ50点の誤差 $\varepsilon_D$}
- \label{tab:inputs}
- \begin{tabular}{l|cccc} \hline
-  入力 & 中央値 & 95\%点 & 最大 & ノイズ未満 \\ \hline
-  $(p, w, d)$         & 0.038 & 0.216 & 0.332 & 38/50 \\
-  $(1/p, w, d)$       & 0.031 & 0.188 & 0.257 & 39/50 \\
-  $(1/p, w/p, d)$     & \textbf{0.028} & \textbf{0.163} & \textbf{0.200} & \textbf{40/50} \\ \hline
- \end{tabular}
-\end{table}
 
-$1/p$ に変えることで全指標が改善し，さらに $w$ をデューティ比 $w/p$ に変えるとわずかに改善した．
-以降は $(1/p, w/p, d)$ を入力とする．
+\section{入力を変えたときの予測スペクトルの変化}
+テストデータの $|R|$ を，FDTD（黒），入力 $(p, w, d)$ の GPR（橙），入力 $(1/p, w/p, d)$ の GPR（青）で比べる．
 
-
-\section{精度評価}
-
-\subsection{誤差の全体}
-Table~\ref{tab:error} に誤差をまとめる．
-比較のため，PCA で圧縮・復元しただけの誤差（回帰の誤差を含まない）も示す．
-
-\begin{table}[htbp]
- \centering
- \caption{GPR の誤差 $\varepsilon_D$（入力 $(1/p, w/p, d)$，$J=17$）}
- \label{tab:error}
- \begin{tabular}{l|cccc} \hline
-   & 中央値 & 95\%点 & 最大 & ノイズ未満 \\ \hline
-  LOO（教師データ180点）        & 0.041 & 0.217 & 0.444 & 139/180 \\
-  テストデータ50点               & 0.028 & 0.163 & 0.200 & 40/50 \\
-  （参考）PCA の圧縮・復元のみ   & 0.015 & 0.033 & 0.044 & 50/50 \\ \hline
- \end{tabular}
-\end{table}
-
-テストデータの中央値 0.028 は実験ノイズの中央値 0.078 を下回る．
-圧縮・復元だけなら全点がノイズを下回るため，残っている誤差は PCA ではなく GPR の予測によるものである．
-LOO の誤差がテストデータより大きいのは，教師データには設計範囲の端（$p \approx 1.10$~mm）の点が多く，
-1点抜くと外挿になるためと考えられる．
-
-\subsection{主成分係数ごとの予測}
-上位6成分の予測値と真値を Fig.~\ref{fig:parity} に示す．
-決定係数 $Q^2$（テストデータ）は，$z_1$ で 1.000，$z_2$--$z_5$ で 0.93--0.98 と高いが，
-$z_6$--$z_{15}$ では 0.45--0.89，$z_{16}, z_{17}$ では 0.62，0.29 と，高次の成分ほど予測が難しくなる．
-ただし高次の成分は寄与率が小さい（$z_6$--$z_{17}$ の合計 14.0\%）ため，$R$ に戻したときの誤差への影響は限られる．
-長さスケールは全成分で $1/p$ が最も短く，係数は $p$ に最も敏感であった．
-また，テストデータの誤差が予測の $\pm 2\sigma$ に入った割合は成分ごとに 0.86--0.98 であり，理想の 0.95 に近い．
-予測の不確かさの見積もりはおおむね妥当である．
+\subsection{ピッチの小さい点：山・谷の位置と高さが FDTD に近づく}
+Fig.~\ref{fig:p119} と Fig.~\ref{fig:p139} はピッチの小さい点である．
+Fig.~\ref{fig:p119}（$p=1.19$~mm）では，$(p, w, d)$ の予測は 3.3~MHz に FDTD にない高い山をつくり，
+4.4~MHz の山を低く見積もっている．$(1/p, w/p, d)$ ではこの山が下がり，4.4~MHz の山も FDTD に近づいた．
+Fig.~\ref{fig:p139}（$p=1.39$~mm，$d=0.32$~mm）では，$(p, w, d)$ の予測は 4.5~MHz の深い谷をほぼ再現できていないが，
+$(1/p, w/p, d)$ では谷が現れ，3--3.5~MHz の山・谷の位置も FDTD 側に寄った．
+ただし 3~MHz 付近の谷の位置が 0.1~MHz 程度高周波側にずれる点は，どちらの入力でも残っている．
 
 \begin{figure}[htbp]
  \centering
- \includegraphics[width=16cm]{../../vscode/surrogate/tmp_output/gpr/train_ph14_first180_refpeak_J17_invp_duty/parity.png}
- \caption{主成分係数 $z_1$--$z_6$ の予測値と真値（灰：LOO，青：テストデータ，誤差棒は $\pm 2\sigma$）}
- \label{fig:parity}
-\end{figure}
-
-\subsection{誤差の分布}
-パラメータごとの誤差を Fig.~\ref{fig:region} に，誤差が最小・中央・最大のテスト点の $R$ を Fig.~\ref{fig:examples} に示す．
-誤差がノイズを上回るテスト点10点のうち9点は $p < 1.4$~mm にあり，誤差は $d$ が大きいほど大きくなる傾向もある．
-教師データ180点のうち $p < 1.4$~mm の点は48点であり，この領域の点が不足している．
-誤差が最大の点（$p=1.51$, $w=0.48$, $d=0.31$~mm，$\varepsilon_D = 0.200$）では，
-3.5~MHz 以下の山と谷の位置が真値から周波数方向にずれており，それより高い周波数ではよく一致している．
-
-\begin{figure}[htbp]
- \centering
- \includegraphics[width=16cm]{../../vscode/surrogate/tmp_output/gpr/train_ph14_first180_refpeak_J17_invp_duty/error_region.png}
- \caption{パラメータごとの誤差 $\varepsilon_D$（灰：LOO，青：テストデータ，破線：実験ノイズの中央値 0.078）}
- \label{fig:region}
+ \includegraphics[width=15cm]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/absR/kukei_cupy_pitch119_width50_depth25_absR.png}
+ \caption{$|R|$ の比較（$p=1.19$, $w=0.50$, $d=0.25$~mm）}
+ \label{fig:p119}
 \end{figure}
 
 \begin{figure}[htbp]
  \centering
- \includegraphics[width=16cm]{../../vscode/surrogate/tmp_output/gpr/train_ph14_first180_refpeak_J17_invp_duty/examples.png}
- \caption{テストデータの $R$ の予測（破線，帯は $\pm 2\sigma$）と真値（実線）．
- 上から誤差最小（$\varepsilon_D = 0.009$），中央（0.029），最大（0.200）．左が実部・虚部，右が $|R|$}
- \label{fig:examples}
+ \includegraphics[width=15cm]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/absR/kukei_cupy_pitch139_width23_depth32_absR.png}
+ \caption{$|R|$ の比較（$p=1.39$, $w=0.23$, $d=0.32$~mm）}
+ \label{fig:p139}
+\end{figure}
+
+\subsection{ピッチの大きい点：入力によらずよく一致する}
+Fig.~\ref{fig:p167}（$p=1.67$~mm）では，どちらの入力でも予測は FDTD とよく重なる．
+$(p, w, d)$ で見られる 4.4~MHz 付近の小さなふくらみと 5.3~MHz 付近の落ち込みが，$(1/p, w/p, d)$ ではなくなり，
+細部がさらに FDTD に近づいた．
+
+\begin{figure}[htbp]
+ \centering
+ \includegraphics[width=15cm]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/absR/kukei_cupy_pitch167_width46_depth21_absR.png}
+ \caption{$|R|$ の比較（$p=1.67$, $w=0.46$, $d=0.21$~mm）}
+ \label{fig:p167}
+\end{figure}
+
+\subsection{改善しなかった点}
+Fig.~\ref{fig:p112}（$p=1.12$~mm，$d=0.10$~mm）は，入力を変えても改善しなかった点である．
+FDTD の $|R|$ は 3--4.5~MHz でほぼ平らで，5.1~MHz に谷がある．
+どちらの入力でも予測は 4~MHz に FDTD にない山，4.5~MHz に谷をつくっており，$(1/p, w/p, d)$ ではこの山がかえって高くなった．
+5.1~MHz の谷の位置も再現できていない．
+設計範囲の端（$p \approx 1.1$~mm）にあり，近くの教師データから補間できていないためと考えられる．
+
+\begin{figure}[htbp]
+ \centering
+ \includegraphics[width=15cm]{../../vscode/surrogate/tmp_output/gpr/compare_inputs_train_ph14_first180_refpeak_J17/spectra/absR/kukei_cupy_pitch112_width36_depth10_absR.png}
+ \caption{$|R|$ の比較（$p=1.12$, $w=0.36$, $d=0.10$~mm）}
+ \label{fig:p112}
 \end{figure}
 
 
 \section{今後の予定}
 \begin{enumerate}
- \item 誤差の大きい $p < 1.4$~mm の領域で，GPR の予測の不確かさが大きい点を20点選び，FDTD 計算を追加する（約2.7時間）．
- \item 追加した点を含めて PCA と GPR を学習し直し，テストデータの誤差がどう変わるかを確認する．
- \item 精度が得られたら，答えの分かるテストデータで $(p, w, d)$ を逆推定できるかを確認し，その後，実験データに適用する．
+ \item 予測が合わない $p < 1.4$~mm の領域で，GPR の予測の不確かさが大きい点を20点選び，FDTD 計算を追加する（約2.7時間）．
+ \item 追加した点を含めて PCA と GPR を学習し直し，予測スペクトルがどう変わるかを確認する．
+ \item 予測が十分に合うようになったら，答えの分かるテストデータで $(p, w, d)$ を逆推定できるかを確認し，その後，実験データに適用する．
 \end{enumerate}
 
 \end{document}
