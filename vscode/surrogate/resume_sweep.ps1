@@ -19,8 +19,16 @@ $Log      = Join-Path $LogDir ("run_log_resume_{0}.txt" -f (Get-Date -Format "yy
 
 # Phases to finish before the normal phase order. 2026-11-05: the user asked to
 # get the remaining 120 train points (learning curve 100 / 180) ahead of the
-# specimen and test phases. Set to @() to go back to plain phase order.
-$PriorityPhases = @(4)
+# specimen and test phases. 2026-11-24: phase 4 is done, back to plain order.
+$PriorityPhases = @()
+
+# Design sets to compute (run_design.py --set). @() means run_design.py's default
+# order (smooth isorms specimen train test). 2026-11-24: the default sets are all
+# done and the sweep in progress is test_spec, which is not in the default order;
+# without this the dry run finds nothing left and the task removes itself.
+$Sets = @("test_spec")
+$SetArgs = if ($Sets.Count) { @("--set") + $Sets } else { @() }
+$SetArg  = $SetArgs -join " "
 
 # The task has both a startup and a logon trigger, and they can fire within
 # seconds of each other in different sessions. A Global mutex makes the second
@@ -40,7 +48,7 @@ Set-Location $Here
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
 # Anything left? The dry run prints "RUN ->" for each condition still to compute.
-$todo = & $Python -u run_design.py --dry-run 2>&1 | Select-String -SimpleMatch "RUN ->"
+$todo = & $Python -u run_design.py --dry-run @SetArgs 2>&1 | Select-String -SimpleMatch "RUN ->"
 if (-not $todo) {
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
     exit 0
@@ -53,9 +61,9 @@ cmd.exe /c "echo === auto resume $stamp ($($todo.Count) left, priority phases: $
 foreach ($ph in $PriorityPhases) {
     cmd.exe /c "`"$Python`" -u run_design.py --phase $ph >> `"$Log`" 2>&1"
 }
-cmd.exe /c "`"$Python`" -u run_design.py >> `"$Log`" 2>&1"
+cmd.exe /c "`"$Python`" -u run_design.py $SetArg >> `"$Log`" 2>&1"
 
-$left = & $Python -u run_design.py --dry-run 2>&1 | Select-String -SimpleMatch "RUN ->"
+$left = & $Python -u run_design.py --dry-run @SetArgs 2>&1 | Select-String -SimpleMatch "RUN ->"
 if (-not $left) {
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 }
