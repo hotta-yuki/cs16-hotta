@@ -2,6 +2,7 @@
 
     python vscode/surrogate/eval_specimen_range.py                       # 既定: invp_duty のモデル
     python vscode/surrogate/eval_specimen_range.py --model train_ph14_first180_refpeak_J17
+    python vscode/surrogate/eval_specimen_range.py --set test_spec      # 試験体の範囲だけの 80 点で (A)
 
 試験体の範囲は specimens.csv の kukei 行の最小〜最大（p 1.25-2.00, w 0.15-0.40, d 0.02-0.28 mm）。
 設計の箱（p 1.10-2.20, w 0.10-0.50, d 0.02-0.32）の内側にある。
@@ -100,7 +101,13 @@ def main():
     ap.add_argument("--model", default="train_ph14_first180_refpeak_J17_invp_duty",
                     help="tmp_output/gpr/ の下のモデルのディレクトリ")
     ap.add_argument("--sim-dir", default=os.path.join(HERE, "tmp_output"))
+    ap.add_argument("--set", nargs="+", default=["test"],
+                    help="(A) のテストに使う design.csv の集合。test_spec = 試験体の範囲だけの 80 点")
+    ap.add_argument("--phase", nargs="+", type=int, default=None,
+                    help="省略時は test なら 2 5、test_spec なら 6")
     args = ap.parse_args()
+    if args.phase is None:
+        args.phase = [6] if args.set == ["test_spec"] else [2, 5]
 
     mdir = os.path.join(args.sim_dir, "gpr", args.model)
     mz = np.load(os.path.join(mdir, "model.npz"))
@@ -130,7 +137,7 @@ def main():
     _, _, nR_pair, _ = experimental_noise_R(freq)
     nR = float(np.median(nR_pair))
 
-    out = os.path.join(mdir, "specimen_range")
+    out = os.path.join(mdir, "specimen_range" + ("" if args.set == ["test"] else "_" + "_".join(args.set)))
     os.makedirs(out, exist_ok=True)
 
     # ================= (A) GPR vs FDTD =================
@@ -139,7 +146,7 @@ def main():
     R_tr, R_loo = to_R(X_tr, K), to_R(mean + Z_loo @ V, K)
     eD_loo, eR_loo = errors(R_loo, R_tr, X_ref)
 
-    la = SimpleNamespace(design=os.path.join(HERE, "design.csv"), set=["test"], phase=[2, 5],
+    la = SimpleNamespace(design=os.path.join(HERE, "design.csv"), set=args.set, phase=args.phase,
                          sim_dir=args.sim_dir)
     names_te, P_te, X_te = load_set(la, fz, freq, X_ref, t_ref)
     R_te = to_R(X_te, K)
