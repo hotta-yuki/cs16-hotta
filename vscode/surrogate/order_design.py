@@ -14,6 +14,7 @@ phase は実行の段階。安く結論が出るものを先に置く。
     3  specimen 42 件 試験体との直接比較
     4  train   120 件 残り（学習曲線の 100 点・180 点）
     5  test    30 件  残り
+    6  test_spec 80 件 試験体の範囲だけに振ったテスト（2026-11-24、add_test_spec.py）
 
     python vscode/surrogate/order_design.py
 """
@@ -63,7 +64,13 @@ def main():
 
     for r in rows:
         r["order"] = 0
-        r["phase"] = {"isorms": 0, "specimen": 3, "reuse": 9}.get(r["set"], 0)
+        r["phase"] = {"isorms": 0, "specimen": 3, "reuse": 9, "test_spec": 6}.get(r["set"], 0)
+
+    # test_spec（add_test_spec.py が足す、試験体の範囲のテスト）は全件 phase 6
+    sub = [r for r in rows if r["set"] == "test_spec"]
+    if sub:
+        for rank, idx in enumerate(farthest_point_order(sub)):
+            sub[idx]["order"] = rank
 
     for tag, first, ph_a, ph_b in (("train", N_TRAIN_FIRST, 1, 4),
                                    ("test", N_TEST_FIRST, 2, 5)):
@@ -95,7 +102,7 @@ def main():
     print(f"    60   {qmc.discrepancy(x):10.5f}   {d.min():10.4f}")
 
     print()
-    for ph in range(6):
+    for ph in range(7):
         sub = [r for r in rows if r["phase"] == ph]
         if sub:
             todo = sum(1 for r in sub if not int(r["done"]))
