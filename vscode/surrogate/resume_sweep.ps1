@@ -26,7 +26,8 @@ $PriorityPhases = @()
 # order (smooth isorms specimen train test). 2026-11-24: the default sets are all
 # done and the sweep in progress is test_spec, which is not in the default order;
 # without this the dry run finds nothing left and the task removes itself.
-$Sets = @("test_spec")
+# 2026-11-25: test_spec is done (80/80); next is adapt1 (select_adaptive.py, 20 points).
+$Sets = @("adapt1")
 $SetArgs = if ($Sets.Count) { @("--set") + $Sets } else { @() }
 $SetArg  = $SetArgs -join " "
 
