@@ -10,8 +10,8 @@
     full   2.00-7.75 MHz（featurize.py の解析帯域。今のモデル）
     -6dB   |X_ref| が最大の 1/2 以上
     -10dB  |X_ref| が最大の 1/sqrt(10) 以上
-    low    2.00 MHz-ピーク
-    high   ピーク-7.75 MHz
+    low    2.00 MHz-（ピーク + 0.5 MHz）    重なりの幅は --overlap（既定 0.5 MHz、0 でピークで切る）
+    high   （ピーク - 0.5 MHz）-7.75 MHz
   帯域ごとに PCA から作り直し、GPR（train_gpr.py と同じ Matérn 5/2 ARD、入力 invp_duty）を学習する。
   主成分の数 J は、full の J = 17 と同じ累積寄与率に届く最小の数（帯域が狭いほど少なくなる）
 - 評価帯域 E: 上の 5 帯域のうち、学習帯域 B の内側に入るもの（B の外は予測していないので評価できない）
@@ -70,6 +70,9 @@ SEQ = LinearSegmentedColormap.from_list("blue_seq", ["#f5f8fc", "#86b6ef", "#398
 TRAIN_SETS = {"180": (["train"], [1, 4]), "200": (["train", "adapt1"], [1, 4, 7])}
 TEST_SETS = {"test": (["test"], [2, 5]), "test_spec": (["test_spec"], [6])}
 PLOT_AXES = [("pitch", 0, "pitch [mm]"), ("depth", 2, "depth [mm]"), ("width", 1, "width [mm]")]
+# low / high を中心周波数（ピーク 4.80 MHz）から相手側へ伸ばす幅。2026-11-26 ユーザーの依頼で
+# 「中心周波数より余裕をもって」とした（それまでは 0 = ピークで切っていた）
+LOW_HIGH_OVERLAP = 0.5e6
 
 
 def select(rows, sets, phases):
@@ -77,10 +80,14 @@ def select(rows, sets, phases):
     return sorted(sel, key=lambda r: (int(r["phase"]), int(r["order"])))
 
 
-def bands_from_ref(freq, X_ref):
-    """|X_ref| から 5 帯域を決める。返り値は {名前: (f_lo, f_hi)}（グリッド上の値）。"""
+def bands_from_ref(freq, X_ref, overlap=LOW_HIGH_OVERLAP):
+    """|X_ref| から 5 帯域を決める。返り値は {名前: (f_lo, f_hi)}（グリッド上の値）。
+
+    low と high はピーク（中心周波数）で切らず、互いに overlap [Hz] ずつ相手側へ伸ばす。
+    """
     a = np.abs(X_ref)
     k0 = int(np.argmax(a))
+    k_ov = int(round(overlap / (freq[1] - freq[0])))
 
     def contiguous(level):
         lo = k0
@@ -95,8 +102,8 @@ def bands_from_ref(freq, X_ref):
         "full": (freq[0], freq[-1]),
         "-6dB": contiguous(0.5),
         "-10dB": contiguous(10 ** -0.5),
-        "low": (freq[0], freq[k0]),
-        "high": (freq[k0], freq[-1]),
+        "low": (freq[0], freq[min(k0 + k_ov, len(freq) - 1)]),
+        "high": (freq[max(k0 - k_ov, 0)], freq[-1]),
     }
 
 
@@ -178,6 +185,8 @@ def main():
     ap.add_argument("--design", default=os.path.join(HERE, "design.csv"))
     ap.add_argument("--sim-dir", default=os.path.join(HERE, "tmp_output"))
     ap.add_argument("--restarts", type=int, default=8, help="train_gpr.py と同じ既定 8")
+    ap.add_argument("--overlap", type=float, default=LOW_HIGH_OVERLAP / 1e6,
+                    help="low / high をピークから相手側へ伸ばす幅 [MHz]")
     args = ap.parse_args()
 
     out = os.path.join(args.sim_dir, "gpr", "band_rmse")
@@ -205,7 +214,7 @@ def main():
         raise SystemExit(f"features.npz と一致しない（最大差 {dev:.2e}）")
     print(f"  features.npz と一致（最大差 {dev:.1e}）", flush=True)
 
-    bands = bands_from_ref(freq, X_ref)
+    bands = bands_from_ref(freq, X_ref, args.overlap * 1e6)
     masks = {b: mask_of(freq, v) for b, v in bands.items()}
 
     # J: full の J_FULL と同じ累積寄与率（180 点の PCA で決め、200 点にも同じ J を使う）

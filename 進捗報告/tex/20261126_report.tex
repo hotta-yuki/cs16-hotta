@@ -132,10 +132,10 @@ $s$ の大きい順に，既存の学習点とすでに選んだ点のいずれ�
 \begin{itemize}
  \item full：2.00--7.75~MHz（これまでと同じ）
  \item $-6$~dB：3.00--6.60~MHz，\ $-10$~dB：2.55--7.05~MHz
- \item low：2.00--4.80~MHz，\ high：4.80--7.75~MHz
+ \item low：2.00--5.30~MHz，\ high：4.30--7.75~MHz（ピークで切らず，互いに 0.5~MHz ずつ重ねた）
 \end{itemize}
 帯域ごとに PCA と GPR を学習し直し，主成分数は full の $J=17$ と同じ累積寄与率（99.457\%）に届く最小の数とした
-（$-6$~dB で12，$-10$~dB で15，low で11，high で12）．
+（$-6$~dB で12，$-10$~dB で15，low で12，high で13）．
 評価には $R$ の二乗平均平方根誤差
 \begin{equation}
  \mathrm{RMSE} = \sqrt{ \frac{1}{N_f} \sum_{f} \left| R_{\mathrm{GPR}}(f) - R_{\mathrm{FDTD}}(f) \right|^2 }
@@ -158,17 +158,17 @@ $s$ の大きい順に，既存の学習点とすでに選んだ点のいずれ�
 
 
 \section{全域で学習し低域で評価した GPR の誤差}
-3節の Fig.~\ref{fig:err200} と同じ形で，全域（full，2.00--7.75~MHz）で学習した200点の GPR を低域（low，2.00--4.80~MHz）だけで評価した．
+3節の Fig.~\ref{fig:err200} と同じ形で，全域（full，2.00--7.75~MHz）で学習した200点の GPR を低域（low，2.00--5.30~MHz）だけで評価した．
 誤差は式 (1) の和を低域の周波数点だけでとった
 \begin{equation}
  \varepsilon_D^{\mathrm{low}} = \frac{\| D_{\mathrm{GPR}} - D_{\mathrm{FDTD}} \|_{\mathrm{low}}}{\| D_{\mathrm{FDTD}} \|_{\mathrm{low}}}
 \end{equation}
-とし，実験ノイズも同じ低域で計算し直した（中央値 0.059）．全域の 0.078 をそのまま使うと，帯域によって基準が変わるためである．
+とし，実験ノイズも同じ低域で計算し直した（中央値 0.067）．全域の 0.078 をそのまま使うと，帯域によって基準が変わるためである．
 
 \begin{figure}[H]
  \centering
  \includegraphics[width=16cm]{../../vscode/surrogate/tmp_output/gpr/train_ph14_adapt1_refpeak_J17_invp_duty/specimen_range_test_spec/error_vs_param_eval_low.png}
- \caption{全域で学習し低域で評価した GPR の $\varepsilon_D^{\mathrm{low}}$ と $p$, $w$, $d$ の関係（200点，試験体の範囲のテスト80点．破線は低域の実験ノイズ 0.059）}
+ \caption{全域で学習し低域で評価した GPR の $\varepsilon_D^{\mathrm{low}}$ と $p$, $w$, $d$ の関係（200点，試験体の範囲のテスト80点．破線は低域の実験ノイズ 0.067）}
  \label{fig:errlow}
 \end{figure}
 
@@ -177,25 +177,13 @@ $s$ の大きい順に，既存の学習点とすでに選んだ点のいずれ�
  \caption{評価帯域による GPR の誤差の違い（全域で学習した200点，試験体の範囲のテスト80点）}
  \label{tab:errlow}
  \begin{tabular}{lcc} \hline
-  評価帯域 & 全域（2.00--7.75~MHz） & 低域（2.00--4.80~MHz） \\ \hline
-  $\varepsilon_D$ の中央値／最大 & 0.029／0.093 & 0.020／0.117 \\
-  実験ノイズ（同じ帯域）の中央値 & 0.078 & 0.059 \\
-  実験ノイズ未満 & 79／80 & 76／80 \\ \hline
+  評価帯域 & 全域（2.00--7.75~MHz） & 低域（2.00--5.30~MHz） \\ \hline
+  $\varepsilon_D$ の中央値／最大 & 0.029／0.093 & 0.023／0.102 \\
+  実験ノイズ（同じ帯域）の中央値 & 0.078 & 0.067 \\
+  実験ノイズ未満 & 79／80 & 79／80 \\ \hline
  \end{tabular}
 \end{table}
 
-\subsection*{わかったこと}
-\begin{itemize}
- \item 低域だけで評価すると誤差の中央値は 0.029 から 0.020 に下がるが，実験ノイズも 0.078 から 0.059 に下がるため，
-       ノイズを下回る点は80点中79点から76点に減った（Table~\ref{tab:errlow}）．
-       誤差が小さく見えるのは主に低域の振幅が大きく安定しているためで，ノイズとの比で見ると低域の予測が特に良いわけではない．
- \item 誤差が最大の点は全域で評価した場合と同じ $p=1.46$, $w=0.40$, $d=0.18$~mm で，低域では 0.117 とノイズの約2倍になった．
-       この点の誤差は低域に集中している．
- \item 誤差は深さ $d$ と幅 $w$ が大きいほど大きく，ピッチ $p$ が小さいほど大きい（Fig.~\ref{fig:errlow}）．
-       区間ごとの中央値は，$d$ 0.02--0.09~mm で 0.011 に対し 0.21--0.28~mm で 0.031，
-       $w$ 0.15--0.21~mm で 0.013 に対し 0.34--0.40~mm で 0.029，$p$ 1.25--1.44~mm で 0.029 に対し 1.81--2.00~mm で 0.014 である．
-       溝が深く広い（散乱が強い）条件ほど低域のスペクトルの変化が大きく，予測が難しいと考えられる．
-\end{itemize}
 
 
 \end{document}
