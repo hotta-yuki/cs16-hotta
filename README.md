@@ -45,7 +45,7 @@
 自動で解決します（別の場所に置く場合は環境変数 `LAB_DATA_DIR` を設定）。
 
 ```bash
-git clone https://github.com/hotta-yuki/-laboratory-cs16.git lab
+git clone https://github.com/hotta-yuki/cs16-hotta.git lab
 git clone <lab-data の URL> lab-data
 ```
 

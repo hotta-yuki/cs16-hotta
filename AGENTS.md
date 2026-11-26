@@ -289,7 +289,7 @@ Claude Code のコミットは末尾に `Co-Authored-By: Claude ...` を付け�
 
 ### push について
 
-remote は `origin`（`https://github.com/hotta-yuki/-laboratory-cs16.git`）。
+remote は `origin`（`https://github.com/hotta-yuki/cs16-hotta.git`。2026-11-26 に旧名 `-laboratory-cs16` から移動）。
 **push はユーザーが判断する。エージェントは自動で push しない**（Claude Code は
 `.claude/settings.json` で `git push` を拒否設定にしてある）。コミットまでを済ませて、
 「push できる状態です」と伝えるところまでが担当。
