@@ -308,7 +308,7 @@ def main():
         _style(ax)
     axs[0].set_ylabel("eps_D（GPR vs FDTD）")
     axs[0].legend(fontsize=8, loc="upper right")
-    fig.suptitle(f"GPR の誤差、test のみ（{args.model}）")
+    fig.suptitle("GPRの誤差")
     fig.savefig(os.path.join(out, "error_vs_param_test.png"), dpi=150)
     plt.close(fig)
 
