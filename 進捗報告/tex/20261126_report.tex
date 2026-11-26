@@ -118,7 +118,6 @@ $s$ の大きい順に，既存の学習点とすでに選んだ点のいずれ�
   評価に使う点 & 指標 & 180点 & 200点 \\ \hline
   試験体の範囲のテスト80点 & $\varepsilon_D$ の中央値／最大 & 0.034／0.099 & 0.029／0.093 \\
                          & 実験ノイズ 0.078 未満 & 77／80 & 79／80 \\
-  設計範囲全体のテスト50点 & $\varepsilon_D$ の中央値／最大 & 0.028／0.200 & 0.028／0.201 \\
   実験の試験体12条件       & GPR と FDTD の $\varepsilon_R$ の最大 & 0.139 & 0.097 \\
                          & 実験の $R$ のばらつき 0.120 未満 & 11／12 & 12／12 \\ \hline
  \end{tabular}
@@ -134,7 +133,6 @@ $s$ の大きい順に，既存の学習点とすでに選んだ点のいずれ�
 \subsection*{変化した点}
 \begin{itemize}
  \item 試験体の範囲のテストデータで誤差が下がり，実験ノイズを超える点は80点中1点になった（Table~\ref{tab:retrain}，Fig.~\ref{fig:err200}）．
- \item 設計範囲全体のテストデータの誤差は変わらず，点を集中させたことによる他の領域の悪化はなかった．
  \item 実験の試験体12条件では，GPR と FDTD の差が12条件すべてで実験のばらつきを下回った．
 \end{itemize}
 
@@ -169,16 +167,14 @@ $s$ の大きい順に，既存の学習点とすでに選んだ点のいずれ�
 \begin{figure}[H]
  \centering
  \includegraphics[width=16cm]{../../vscode/surrogate/tmp_output/gpr/band_rmse/rmse_vs_params_full_200.png}
- \caption{full で学習・評価した RMSE と $p$, $d$, $w$ の関係（200点．
-          塗りつぶしは試験体の範囲のテスト80点，白抜きは設計範囲全体のテスト50点，色の帯は試験体の範囲）}
+ \caption{full で学習・評価した RMSE と $p$, $d$, $w$ の関係（200点，試験体の範囲のテスト80点）}
  \label{fig:rmsefull}
 \end{figure}
 
 \begin{figure}[H]
  \centering
- \includegraphics[width=15cm]{../../vscode/surrogate/tmp_output/gpr/band_rmse/band_matrix_200.png}
- \caption{学習帯域と評価帯域の組み合わせごとの RMSE の中央値（200点．
-          左は試験体の範囲のテスト80点，右は設計範囲全体のテスト50点．空欄は評価帯域が学習帯域の外）}
+ \includegraphics[width=10cm]{../../vscode/surrogate/tmp_output/gpr/band_rmse/band_matrix_200.png}
+ \caption{学習帯域と評価帯域の組み合わせごとの RMSE の中央値（200点，試験体の範囲のテスト80点．空欄は評価帯域が学習帯域の外）}
  \label{fig:bandmat}
 \end{figure}
 
@@ -190,9 +186,8 @@ $s$ の大きい順に，既存の学習点とすでに選んだ点のいずれ�
        主成分をすべて高周波側の変化の表現に使えるためと考えられる．
  \item $-6$~dB，$-10$~dB，low は，帯域を狭めて学習しても，full で学習したモデルを同じ帯域で評価した場合
        （$-6$~dB で 0.023，$-10$~dB で 0.025，low で 0.016）より小さくならず，改善しなかった（0.024，0.025，0.018）．
- \item パラメータごとに見ると，ピッチ $p$ が小さいほど，深さ $d$ が大きいほど誤差が大きい
-       （$p$ 1.11--1.38~mm で 0.032，1.93--2.20~mm で 0.025，$d$ 0.02--0.10~mm で 0.020，0.24--0.32~mm で 0.031．Fig.~\ref{fig:rmsefull}）．
-       幅 $w$ による違いは小さい．
+ \item パラメータごとに見ると，浅い溝（$d \le 0.09$~mm）では誤差が小さく（中央値 0.020），それより深い溝では 0.028--0.034 である．
+       ピッチ $p$ と幅 $w$ による違いは小さい（Fig.~\ref{fig:rmsefull}）．
 \end{itemize}
 
 
