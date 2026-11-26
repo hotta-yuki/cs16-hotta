@@ -8,7 +8,7 @@
 
     spectra/Re|Im|absR/D<eps_D 順位>_R<eps_R 順位>_<CSV 名>_<Re|Im|absR>.png
                          順位は 200 点モデルで 1 = 誤差最大（名前順 = eps_D の悪い順）
-                         点ごとに FDTD と GPR（180 点・200 点）の R を重ねる（Re / Im は ±2σ の帯つき）。
+                         点ごとに FDTD と GPR（200 点）の R を重ねる（Re / Im は ±2σ の帯つき）。
                          compare_gpr_inputs.py の spectra/ と同じ形
 
 D は FDTD の溝ありのスペクトル（R * X_ref）。値は全域（2.00-7.75 MHz）の特徴量のもの。
@@ -115,10 +115,9 @@ def main():
     plt.close(fig)
 
     # ---- 点ごとのスペクトル（compare_gpr_inputs.py の spectra/ と同じ形）
-    #      FDTD と 180 点・200 点の GPR を重ね、Re / Im には ±2σ の帯を付ける
-    models = [(m, lab, c) for m, lab, c in (
-        ("train_ph14_first180_refpeak_J17_invp_duty", "180点", "#eb6834"),
-        (args.model, "200点", "#2a78d6")) if os.path.isdir(os.path.join(args.sim_dir, "gpr", m))]
+    #      FDTD と GPR（--model、既定 200 点）を重ね、Re / Im には ±2σ の帯を付ける
+    #      （2026-11-26 までは 180 点も重ねていたが、ユーザーの依頼で外した）
+    models = [(args.model, "200点" if "adapt1" in args.model else "", "#2a78d6")]
     pred = {}
     for m, lab, c in models:
         md = os.path.join(args.sim_dir, "gpr", m)
