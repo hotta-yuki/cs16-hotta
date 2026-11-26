@@ -151,6 +151,7 @@ $s$ の大きい順に，既存の学習点とすでに選んだ点のいずれ�
 
 \section{周波数帯による予測誤差の違い}
 誤差がどの周波数に集まっているかを調べるため，学習と評価に使う周波数帯を変えて比べた．
+本節では教師データ200点で学習したモデルについてのみ論じる．
 帯域は平滑面のスペクトルの大きさ（ピーク 4.80~MHz）から次の5つとした．
 \begin{itemize}
  \item full：2.00--7.75~MHz（これまでと同じ）
@@ -167,31 +168,31 @@ $s$ の大きい順に，既存の学習点とすでに選んだ点のいずれ�
 
 \begin{figure}[H]
  \centering
- \includegraphics[width=16cm]{../../vscode/surrogate/tmp_output/gpr/band_rmse/rmse_vs_params_full.png}
- \caption{full で学習・評価した RMSE と $p$, $d$, $w$ の関係（青：180点，橙：200点．
-          塗りつぶしは試験体の範囲のテスト80点，白抜きは設計範囲全体のテスト50点，線は区間ごとの中央値）}
+ \includegraphics[width=16cm]{../../vscode/surrogate/tmp_output/gpr/band_rmse/rmse_vs_params_full_200.png}
+ \caption{full で学習・評価した RMSE と $p$, $d$, $w$ の関係（200点．
+          塗りつぶしは試験体の範囲のテスト80点，白抜きは設計範囲全体のテスト50点，線は区間ごとの中央値，色の帯は試験体の範囲）}
  \label{fig:rmsefull}
 \end{figure}
 
 \begin{figure}[H]
  \centering
- \includegraphics[width=13cm]{../../vscode/surrogate/tmp_output/gpr/band_rmse/band_matrix.png}
- \caption{学習帯域と評価帯域の組み合わせごとの RMSE の中央値（左：180点，右：200点．
-          上段は試験体の範囲のテスト80点，下段は設計範囲全体のテスト50点．空欄は評価帯域が学習帯域の外）}
+ \includegraphics[width=15cm]{../../vscode/surrogate/tmp_output/gpr/band_rmse/band_matrix_200.png}
+ \caption{学習帯域と評価帯域の組み合わせごとの RMSE の中央値（200点．
+          左は試験体の範囲のテスト80点，右は設計範囲全体のテスト50点．空欄は評価帯域が学習帯域の外）}
  \label{fig:bandmat}
 \end{figure}
 
 \subsection*{わかったこと}
 \begin{itemize}
  \item full で学習したモデルの誤差は高周波側に集中しており，試験体の範囲のテストデータで high の RMSE（0.033）は
-       low（180点で 0.019，200点で 0.016）の約2倍である（Fig.~\ref{fig:bandmat}）．
- \item high だけで学習し直すと，high の RMSE は 0.033 から，180点で 0.029，200点で 0.026 に下がった．
+       low（0.016）の約2倍である（Fig.~\ref{fig:bandmat}）．
+ \item high だけで学習し直すと，high の RMSE は 0.033 から 0.026 に下がった．
        主成分をすべて高周波側の変化の表現に使えるためと考えられる．
- \item $-6$~dB，$-10$~dB，low は，帯域を狭めて学習しても，full で学習したモデルを同じ帯域で評価した場合と同程度で，改善しなかった．
- \item 教師データを200点にした効果は点を足した $p$ 1.11--1.38~mm に集中しており，この区間の RMSE の中央値は
-       0.053 から 0.032 に下がった．$p \ge 1.38$~mm ではほぼ変わらない（Fig.~\ref{fig:rmsefull}）．
- \item 深さ $d$ が大きいほど誤差が大きい傾向は200点でも残っている
-       （$d$ 0.02--0.10~mm で 0.020，0.24--0.32~mm で 0.031）．
+ \item $-6$~dB，$-10$~dB，low は，帯域を狭めて学習しても，full で学習したモデルを同じ帯域で評価した場合
+       （$-6$~dB で 0.023，$-10$~dB で 0.025，low で 0.016）より小さくならず，改善しなかった（0.024，0.025，0.018）．
+ \item パラメータごとに見ると，ピッチ $p$ が小さいほど，深さ $d$ が大きいほど誤差が大きい
+       （$p$ 1.11--1.38~mm で 0.032，1.93--2.20~mm で 0.025，$d$ 0.02--0.10~mm で 0.020，0.24--0.32~mm で 0.031．Fig.~\ref{fig:rmsefull}）．
+       幅 $w$ による違いは小さい．
 \end{itemize}
 
 
