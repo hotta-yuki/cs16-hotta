@@ -147,6 +147,18 @@ def main():
         for fn_old in os.listdir(d_sub):           # 順位はモデルで変わるので、前回の図を消してから描く
             if fn_old.endswith(".png"):
                 os.remove(os.path.join(d_sub, fn_old))
+    # 縦軸は Re / Im / absR ごとに全点で揃える（図どうしでずれの大きさを見比べられるように）。
+    # 範囲は FDTD・各モデルの予測・±2σ の帯がすべて収まるようにとる
+    ylim = {}
+    for sub, _, f, sdf in parts:
+        vals = [f(R)]
+        for m, *_ in models:
+            Rm, Sd, *_ = pred[m]
+            y = f(Rm)
+            vals += [y] if sdf is None else [y - 2 * sdf(Sd.T).T, y + 2 * sdf(Sd.T).T]
+        lo, hi = min(v.min() for v in vals), max(v.max() for v in vals)
+        pad = 0.03 * (hi - lo)
+        ylim[sub] = (lo - pad, hi + pad)
     for i, name in enumerate(names):
         base = os.path.splitext(os.path.basename(name))[0]
         head = (f"{base}  p={P[i, 0]:.2f} w={P[i, 1]:.2f} d={P[i, 2]:.2f} mm\n"
@@ -162,9 +174,10 @@ def main():
                     s = sdf(Sd[i])
                     ax.fill_between(fM, y - 2 * s, y + 2 * s, color=c, alpha=0.15, linewidth=0)
                 ax.plot(fM, y, color=c, linewidth=1.4, linestyle="--", label=f"GPR {lab}  eps_D {eD[i]:.3f}")
+            ax.set_ylim(*ylim[sub])
             ax.set_xlabel("周波数 [MHz]")
             ax.set_ylabel(ylab)
-            band = "（帯は ±2σ）" if sdf is not None else ""
+            band ="（帯は ±2σ）" if sdf is not None else ""
             ax.set_title(f"{head}\n{ylab}{band}", fontsize=10)
             ax.legend(frameon=False, fontsize=8)
             _style(ax)
