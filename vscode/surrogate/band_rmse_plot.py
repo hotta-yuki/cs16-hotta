@@ -16,7 +16,7 @@ import os
 
 import numpy as np
 
-from band_rmse import C180, C200, C_BOX, PLOT_AXES, SEQ, binned_median, plt
+from band_rmse import C180, C200, C_BOX, PLOT_AXES, SEQ, plt
 from eval_specimen_range import specimen_box
 from featurize import _style
 
@@ -51,14 +51,12 @@ def main():
                    label="test_spec（試験体の範囲、80 点）" if name == "pitch" else None, zorder=2)
         ax.scatter(x[~is_spec], y[~is_spec], s=18, facecolor="none", edgecolor=col, alpha=0.85, lw=1,
                    label="test（設計範囲全体、50 点）" if name == "pitch" else None, zorder=2)
-        c, m = binned_median(x, y, np.linspace(x.min(), x.max(), 7))
-        ax.plot(c, m, color=col, lw=2, zorder=3, label="区間ごとの中央値" if name == "pitch" else None)
         ax.set_xlabel(label)
         ax.set_ylim(0, 1.05 * y.max())
         _style(ax)
     axs[0].set_ylabel("RMSE of R")
     h, lab = axs[0].get_legend_handles_labels()
-    fig.legend(h, lab, loc="upper center", ncol=4, frameon=False, fontsize=8, bbox_to_anchor=(0.5, 1.0))
+    fig.legend(h, lab, loc="upper center", ncol=3, frameon=False, fontsize=8, bbox_to_anchor=(0.5, 1.0))
     fig.get_layout_engine().set(rect=(0, 0, 1, 0.92))
     fig.savefig(os.path.join(out, f"rmse_vs_params_full_{args.train}.png"), dpi=150)
     plt.close(fig)
