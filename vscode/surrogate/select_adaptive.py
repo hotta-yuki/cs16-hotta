@@ -70,7 +70,7 @@ PHASE = 7
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="train_ph14_first180_refpeak_J17_invp_duty")
+    ap.add_argument("--model", default="train_ph14_adapt1_refpeak_J17_invp_duty")  # 2026-11-26 から 200 点（旧 180 点は train_ph14_first180_refpeak_J17_invp_duty）
     ap.add_argument("--sim-dir", default=os.path.join(HERE, "tmp_output"))
     ap.add_argument("--design", default=os.path.join(HERE, "design.csv"))
     ap.add_argument("--box", nargs=6, type=float, default=[1.22, 1.38, 0.15, 0.40, 0.15, 0.30],

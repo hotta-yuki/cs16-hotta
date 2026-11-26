@@ -120,7 +120,7 @@ def load_set(args, z, freq, X_ref, t_ref):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--train", default="train_ph14_first180_refpeak",
+    ap.add_argument("--train", default="train_ph14_adapt1_refpeak",  # 2026-11-26 から 200 点（旧 train_ph14_first180_refpeak）
                     help="features/ の下の学習側サブディレクトリ")
     ap.add_argument("--J", type=int, default=17, help="主成分の数（README 6 で決めた値）")
     ap.add_argument("--design", default=os.path.join(HERE, "design.csv"))

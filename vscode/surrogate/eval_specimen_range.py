@@ -98,7 +98,7 @@ def find_sim(p, w, d):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="train_ph14_first180_refpeak_J17_invp_duty",
+    ap.add_argument("--model", default="train_ph14_adapt1_refpeak_J17_invp_duty",  # 2026-11-26 から 200 点（旧 180 点は train_ph14_first180_refpeak_J17_invp_duty）
                     help="tmp_output/gpr/ の下のモデルのディレクトリ")
     ap.add_argument("--sim-dir", default=os.path.join(HERE, "tmp_output"))
     ap.add_argument("--set", nargs="+", default=["test"],
