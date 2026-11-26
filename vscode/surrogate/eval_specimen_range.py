@@ -296,19 +296,19 @@ def main():
 
     # 同じ図を test だけで。LOO は学習点の上の誤差で test と性質が違うため、報告で test だけを見せる用
     fig, axs = plt.subplots(1, 3, figsize=(14, 4), layout="constrained", sharey=True)
+    # 報告用なので試験体の範囲の網かけは描かない（2026-11-26 ユーザーの依頼）
     for k, ax in enumerate(axs):
-        ax.axvspan(lo[k], hi[k], color=C_BOX, zorder=0, label="試験体の範囲")
         if (~in_te).any():
             ax.scatter(P_te[~in_te, k], eD_te[~in_te], s=22, facecolor="none", edgecolor=C_RE,
-                       linewidth=1.0, label="test 範囲外", zorder=2)
-        ax.scatter(P_te[in_te, k], eD_te[in_te], s=24, color=C_RE, label="test 試験体の範囲内", zorder=4)
+                       linewidth=1.0, label="test（試験体の範囲外）", zorder=2)
+        ax.scatter(P_te[in_te, k], eD_te[in_te], s=24, color=C_RE, label="test", zorder=4)
         ax.axhline(nD, color="#52514e", linestyle="--", linewidth=1, label=f"実験ノイズ中央値 {nD:.3f}")
         ax.set_ylim(bottom=0)
         ax.set_xlabel(labels[k])
         _style(ax)
     axs[0].set_ylabel("eps_D（GPR vs FDTD）")
     axs[0].legend(fontsize=8, loc="upper right")
-    fig.suptitle(f"GPR の誤差と試験体の範囲、test のみ（{args.model}）")
+    fig.suptitle(f"GPR の誤差、test のみ（{args.model}）")
     fig.savefig(os.path.join(out, "error_vs_param_test.png"), dpi=150)
     plt.close(fig)
 
