@@ -1,0 +1,9 @@
+{
+  // このリポジトリを開いたときに VS Code / Antigravity が入れるよう勧める拡張機能。
+  // LaTeX Workshop: 進捗報告の .tex を保存するたびに自動ビルドして PDF をタブで更新する
+  // (設定は settings.json の latex-workshop.*)。2026-11-26 にユーザーの依頼で必須にした。
+  "recommendations": [
+    "james-yu.latex-workshop",
+    "ms-python.python"
+  ]
+}

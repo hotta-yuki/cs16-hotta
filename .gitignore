@@ -27,6 +27,8 @@ pic/
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
+# 推奨拡張機能（LaTeX Workshop など）。別の PC で開いたときに導入を促すため共有する
+!.vscode/extensions.json
 
 # LLM history artifacts (audit logs should be tracked, but maybe not the raw DB if large)
 # scripts/history.db

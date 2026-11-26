@@ -12,6 +12,28 @@
     "files.encoding": "utf8"
   },
 
+  // LaTeX のライブプレビュー (拡張機能 LaTeX Workshop、2026-11-26 にユーザーの依頼で導入)。
+  // .tex を保存するたびに自動でビルドし、PDF を VS Code のタブで更新する。
+  // ビルドは build_report.ps1 と同じ: ptex2pdf (platex + dvipdfmx) を 2 回 (相互参照の解決)。
+  // nonstopmode にしないとエラーで入力待ちのまま止まる。ソース <-> PDF の移動は synctex
+  // (PDF を Ctrl+クリックでソースの該当行へ、ソースで Ctrl+Alt+J で PDF の該当箇所へ)。
+  "latex-workshop.latex.tools": [
+    {
+      "name": "ptex2pdf",
+      "command": "ptex2pdf",
+      "args": ["-l", "-ot", "-kanji=utf8 -synctex=1 -interaction=nonstopmode -file-line-error", "%DOC_EXT%"]
+    }
+  ],
+  "latex-workshop.latex.recipes": [
+    { "name": "ptex2pdf x2 (build_report.ps1 と同じ)", "tools": ["ptex2pdf", "ptex2pdf"] }
+  ],
+  "latex-workshop.latex.recipe.default": "first",
+  "latex-workshop.latex.autoBuild.run": "onSave",
+  "latex-workshop.view.pdf.viewer": "tab",
+  // build_report.ps1 と同じく中間ファイルを消す (synctex.gz と PDF は残す)
+  "latex-workshop.latex.autoClean.run": "onBuilt",
+  "latex-workshop.latex.clean.fileTypes": ["*.aux", "*.log", "*.dvi", "*.out", "*.toc", "*.fls", "*.fdb_latexmk"],
+
   // 生成物・巨大ディレクトリを検索とファイル監視から除外する
   // (vscode/project1 だけで 16GB あるため、外さないと検索が実用にならない)
   "files.watcherExclude": {
