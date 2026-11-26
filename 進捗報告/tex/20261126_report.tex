@@ -1,0 +1,211 @@
+\documentclass{jarticle}
+\usepackage[dvipdfmx]{graphicx}
+\usepackage{amsmath,amssymb}
+\topmargin       -10.0mm
+\oddsidemargin   -0.4mm
+\evensidemargin  -0.4mm
+\headheight       0.0mm
+\headsep          0.0mm
+\footskip        10.0mm
+%
+\textheight     260.0mm
+\textwidth      170.0mm
+%
+\setlength{\parindent}{1zw}
+%
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\makeatletter
+\def \fgcaption{\def \@captype{figure} \caption}
+\def \tbcaption{\def \@captype{table} \caption}
+\makeatother
+\def \figurename{Fig.}
+\def \tablename{Table}
+%
+\def\topfraction{.99}
+\def\bottomfraction{.99}
+\def\textfraction{.01}
+\def\floatpagefraction{.99}
+%
+\pagestyle{empty}
+%
+\begin{document}
+%
+\begin{center}
+ \begin{tabular}{|c|c|c|} \hline
+  \parbox{50mm}{\vspace{1mm} \centering{\Large\bf 2026/11/26}} &
+  \parbox{55mm}{\vspace{1mm} \centering{\Large\bf B4　堀田裕樹}} &
+  \parbox{50mm}{\vspace{1mm} \centering{\Large\bf No.~16}}
+  \\ [2mm] \hline
+%
+  \multicolumn{3}{|c|}{%
+   \parbox{155mm}{\centering\Large\bf
+    \vspace{1mm}
+    サロゲートモデル構築：精度評価と適応的サンプリング
+   }
+  }
+  \\ [2mm] \hline\hline
+%
+  \multicolumn{3}{|c|}{%
+   \parbox{155mm}{\large\vspace{1mm}
+%
+    {\Large\bf 今週の進捗要点}
+%
+    \begin{itemize}
+     \item 試験体の範囲だけに配置したテストデータ80点を追加で計算し，逆推定に使う範囲で GPR の精度を評価した
+     \item 誤差の大きい領域に教師データ20点を適応的に追加し，200点で学習し直した
+     \item 学習・評価に使う周波数帯を変えて予測誤差を比べ，誤差が高周波側に集中することを確かめた
+    \end{itemize}
+%
+   }
+  }
+  \\ [2mm] \hline
+ \end{tabular}
+\end{center}
+\par
+
+
+
+\section{試験体の範囲での精度評価}
+前回までのテストデータ50点は，設計範囲（$p$ 1.10--2.20~mm，$w$ 0.10--0.50~mm，$d$ 0.02--0.32~mm）全体に
+ラテン超方格法（LHS）で配置したもので，実験の試験体の範囲（$p$ 1.25--2.00~mm，$w$ 0.15--0.40~mm，$d$ 0.02--0.28~mm）に
+入る点は16点しかなかった．逆推定はこの範囲で行うため，試験体の範囲だけに LHS で80点を配置し，FDTD で計算した
+（1点あたり約8分，計約10時間）．この80点は学習には使わない．
+
+誤差は，溝ありのスペクトル $D$ の相対誤差
+\begin{equation}
+ \varepsilon_D = \frac{\| D_{\mathrm{GPR}} - D_{\mathrm{FDTD}} \|}{\| D_{\mathrm{FDTD}} \|}
+\end{equation}
+で評価し，実験で同じ条件を繰り返し測ったときの $D$ のばらつき（中央値 0.078，以下「実験ノイズ」）と比べた．
+前回の教師データ180点で学習した GPR（入力 $(1/p, w/p, d)$，$J=17$）では，80点の $\varepsilon_D$ は
+中央値 0.034，最大 0.099 で，80点中77点が実験ノイズを下回った．
+一方，学習データの一点抜き交差検証（LOO）では，試験体の範囲内でも $p$ の小さい側で誤差が大きく，
+最大は $p=1.29$, $w=0.26$, $d=0.20$~mm の 0.190 であった．
+
+
+\section{適応的サンプリング}
+誤差の大きい領域に教師データを足すため，候補点ごとに予想誤差
+\begin{equation}
+ s(\boldsymbol{x}) = \max \left( \sigma_D(\boldsymbol{x}),\ \bar{\varepsilon}_{\mathrm{LOO}}(\boldsymbol{x}) \right)
+\end{equation}
+を求めた．$\sigma_D$ は GPR の予測の標準偏差を $D$ の相対誤差に換算したもの，
+$\bar{\varepsilon}_{\mathrm{LOO}}$ は近傍5点の LOO 誤差の距離重みつき平均である．
+$\sigma_D$ だけでは実際の誤差を小さく見積もる場合があるため，実際に測った LOO 誤差と大きい方をとった．
+候補は誤差の大きい角を囲む $p$ 1.22--1.38~mm，$w$ 0.15--0.40~mm，$d$ 0.15--0.30~mm の格子点 7043 点とし，
+$s$ の大きい順に，入力空間（$[0,1]$ に正規化）で互いに 0.12 以上離れた20点を選んだ（Fig.~\ref{fig:errmap}）．
+選ぶ前の時点で，試験体の範囲のうち予想誤差が実験ノイズを超える領域は 15.2\% であった．
+選んだ20点を FDTD で計算し（約2.7時間），教師データを200点にして学習し直した．設定は180点のときと同じである．
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=16cm]{../../vscode/surrogate/tmp_output/gpr/train_ph14_first180_refpeak_J17_invp_duty/adaptive/error_map.png}
+ \caption{180点で学習した GPR の予想誤差の地図（左：$s$，右：$\sigma_D$ のみ）．
+          上段は $p$--$d$ 平面（$w$ 方向の最大），下段は $p$--$w$ 平面（$d$ 方向の最大）．
+          破線は試験体の範囲，橙の枠は候補の範囲，星は選んだ20点，黒線は実験ノイズ 0.078 の等高線}
+ \label{fig:errmap}
+\end{figure}
+
+
+\section{学習し直した結果}
+180点と200点の GPR の誤差を Table~\ref{tab:retrain} にまとめる．
+実験の試験体12条件では，$D$ ではなく $R = D / D_{\mathrm{smooth}}$ の相対誤差 $\varepsilon_R$ で比べ，
+実験の $R$ のばらつき（平滑面の測定のばらつき込み，中央値 0.120）を基準とした．
+
+\begin{table}[H]
+ \centering
+ \caption{180点と200点の GPR の誤差}
+ \label{tab:retrain}
+ \begin{tabular}{llcc} \hline
+  評価に使う点 & 指標 & 180点 & 200点 \\ \hline
+  試験体の範囲のテスト80点 & $\varepsilon_D$ の中央値／最大 & 0.034／0.099 & 0.029／0.093 \\
+                         & 実験ノイズ 0.078 未満 & 77／80 & 79／80 \\
+  試験体の範囲内の LOO     & $\varepsilon_D$ の最大 & 0.190 & 0.108 \\
+  設計範囲全体のテスト50点 & $\varepsilon_D$ の中央値／最大 & 0.028／0.200 & 0.028／0.201 \\
+  実験の試験体12条件       & GPR と FDTD の $\varepsilon_R$ の最大 & 0.139 & 0.097 \\
+                         & 実験の $R$ のばらつき 0.120 未満 & 11／12 & 12／12 \\ \hline
+ \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=16cm]{../../vscode/surrogate/tmp_output/gpr/train_ph14_adapt1_refpeak_J17_invp_duty/specimen_range_test_spec/error_vs_param.png}
+ \caption{200点で学習した GPR の $\varepsilon_D$ と $p$, $w$, $d$ の関係（色の帯は試験体の範囲，破線は実験ノイズ 0.078）}
+ \label{fig:err200}
+\end{figure}
+
+\subsection*{変化した点}
+\begin{itemize}
+ \item 試験体の範囲のテストデータで誤差が下がり，実験ノイズを超える点は80点中1点になった（Table~\ref{tab:retrain}）．
+ \item 試験体の範囲内の LOO の最大誤差は 0.190 から 0.108 とほぼ半分になり，$p$ の小さい側の大きな誤差が消えた（Fig.~\ref{fig:err200}）．
+ \item 設計範囲全体のテストデータの誤差は変わらず，点を集中させたことによる他の領域の悪化はなかった．
+ \item 実験の試験体12条件では，GPR と FDTD の差が12条件すべてで実験のばらつきを下回った．
+\end{itemize}
+
+\subsection*{課題}
+\begin{itemize}
+ \item 弱点だった角の2条件（$p=1.25$, $w=0.40$, $d=0.15$ および $0.20$~mm）で，
+       GPR と FDTD の差が予測の $\pm 2\sigma$ に入る周波数点の割合（理想 0.95）が，0.72 から 0.60，0.76 から 0.62 に下がった．
+       誤差は小さくなったが，予測の $\sigma$ がそれ以上に小さくなったためで，GPR が不確かさを小さく見積もりすぎている．
+       逆推定で $\sigma$ を誤差として使う前に直す必要がある．
+ \item GPR と実験の差が各条件の実験のばらつきを下回ったのは，180点・200点とも12条件中8条件で変わらなかった．
+       FDTD と実験の差でも8条件であり，この差は GPR ではなく FDTD と実験の差が支配している．
+\end{itemize}
+
+
+\section{周波数帯による予測誤差の違い}
+誤差がどの周波数に集まっているかを調べるため，学習と評価に使う周波数帯を変えて比べた．
+帯域は平滑面のスペクトルの大きさ（ピーク 4.80~MHz）から次の5つとした．
+\begin{itemize}
+ \item full：2.00--7.75~MHz（これまでと同じ）
+ \item $-6$~dB：3.00--6.60~MHz，\ $-10$~dB：2.55--7.05~MHz
+ \item low：2.00--4.80~MHz，\ high：4.80--7.75~MHz
+\end{itemize}
+帯域ごとに PCA と GPR を学習し直し，主成分数は full の $J=17$ と同じ累積寄与率（99.457\%）に届く最小の数とした
+（$-6$~dB で12，$-10$~dB で15，low で11，high で12）．
+評価には $R$ の二乗平均平方根誤差
+\begin{equation}
+ \mathrm{RMSE} = \sqrt{ \frac{1}{N_f} \sum_{f} \left| R_{\mathrm{GPR}}(f) - R_{\mathrm{FDTD}}(f) \right|^2 }
+\end{equation}
+を使った（$N_f$ は帯域内の周波数点の数）．前節までの相対誤差とは定義が異なる．
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=16cm]{../../vscode/surrogate/tmp_output/gpr/band_rmse/rmse_vs_params_full.png}
+ \caption{full で学習・評価した RMSE と $p$, $d$, $w$ の関係（青：180点，橙：200点．
+          塗りつぶしは試験体の範囲のテスト80点，白抜きは設計範囲全体のテスト50点，線は区間ごとの中央値）}
+ \label{fig:rmsefull}
+\end{figure}
+
+\begin{figure}[H]
+ \centering
+ \includegraphics[width=13cm]{../../vscode/surrogate/tmp_output/gpr/band_rmse/band_matrix.png}
+ \caption{学習帯域と評価帯域の組み合わせごとの RMSE の中央値（左：180点，右：200点．
+          上段は試験体の範囲のテスト80点，下段は設計範囲全体のテスト50点．空欄は評価帯域が学習帯域の外）}
+ \label{fig:bandmat}
+\end{figure}
+
+\subsection*{わかったこと}
+\begin{itemize}
+ \item full で学習したモデルの誤差は高周波側に集中しており，試験体の範囲のテストデータで high の RMSE（0.033）は
+       low（180点で 0.019，200点で 0.016）の約2倍である（Fig.~\ref{fig:bandmat}）．
+ \item high だけで学習し直すと，high の RMSE は 0.033 から，180点で 0.029，200点で 0.026 に下がった．
+       主成分をすべて高周波側の変化の表現に使えるためと考えられる．
+ \item $-6$~dB，$-10$~dB，low は，帯域を狭めて学習しても，full で学習したモデルを同じ帯域で評価した場合と同程度で，改善しなかった．
+ \item 教師データを200点にした効果は点を足した $p$ 1.11--1.38~mm に集中しており，この区間の RMSE の中央値は
+       0.053 から 0.032 に下がった．$p \ge 1.38$~mm ではほぼ変わらない（Fig.~\ref{fig:rmsefull}）．
+ \item 深さ $d$ が大きいほど誤差が大きい傾向は200点でも残っている
+       （$d$ 0.02--0.10~mm で 0.020，0.24--0.32~mm で 0.031）．
+\end{itemize}
+
+
+\section{今後の予定}
+\begin{itemize}
+ \item 予測の $\sigma$ が不確かさを小さく見積もる問題を直す（LOO 誤差を使った $\sigma$ の較正，ノイズ項や長さスケールの見直し）．
+ \item 高周波側の誤差を下げる（high 専用のモデルを併用する，または高周波側の主成分を増やす）．
+ \item 逆推定に進む．まず正解の分かる試験体の範囲のテストデータで $(p, w, d)$ が戻るかを確かめ，その後実験データに適用する．
+\end{itemize}
+
+
+
+\end{document}
