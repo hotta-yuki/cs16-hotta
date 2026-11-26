@@ -80,8 +80,6 @@
 で評価し，実験で同じ条件を繰り返し測ったときの $D$ のばらつき（中央値 0.078，以下「実験ノイズ」）と比べた．
 前回の教師データ180点で学習した GPR（入力 $(1/p, w/p, d)$，$J=17$）では，80点の $\varepsilon_D$ は
 中央値 0.034，最大 0.099 で，80点中77点が実験ノイズを下回った．
-一方，学習データの一点抜き交差検証（LOO）では，試験体の範囲内でも $p$ の小さい側で誤差が大きく，
-最大は $p=1.29$, $w=0.26$, $d=0.20$~mm の 0.190 であった．
 
 
 \section{適応的サンプリング}
@@ -90,7 +88,7 @@
  s(\boldsymbol{x}) = \max \left( \sigma_D(\boldsymbol{x}),\ \bar{\varepsilon}_{\mathrm{LOO}}(\boldsymbol{x}) \right)
 \end{equation}
 を求めた．$\sigma_D$ は GPR の予測の標準偏差を $D$ の相対誤差に換算したもの，
-$\bar{\varepsilon}_{\mathrm{LOO}}$ は近傍5点の LOO 誤差の距離重みつき平均である．
+$\bar{\varepsilon}_{\mathrm{LOO}}$ は近傍5点の学習データの一点抜き交差検証（LOO）誤差の距離重みつき平均である．
 $\sigma_D$ だけでは実際の誤差を小さく見積もる場合があるため，実際に測った LOO 誤差と大きい方をとった．
 候補は誤差の大きい角を囲む $p$ 1.22--1.38~mm，$w$ 0.15--0.40~mm，$d$ 0.15--0.30~mm の格子点 7043 点とし，
 $s$ の大きい順に，入力空間（$[0,1]$ に正規化）で互いに 0.12 以上離れた20点を選んだ（Fig.~\ref{fig:errmap}）．
@@ -120,7 +118,6 @@ $s$ の大きい順に，入力空間（$[0,1]$ に正規化）で互いに 0.12
   評価に使う点 & 指標 & 180点 & 200点 \\ \hline
   試験体の範囲のテスト80点 & $\varepsilon_D$ の中央値／最大 & 0.034／0.099 & 0.029／0.093 \\
                          & 実験ノイズ 0.078 未満 & 77／80 & 79／80 \\
-  試験体の範囲内の LOO     & $\varepsilon_D$ の最大 & 0.190 & 0.108 \\
   設計範囲全体のテスト50点 & $\varepsilon_D$ の中央値／最大 & 0.028／0.200 & 0.028／0.201 \\
   実験の試験体12条件       & GPR と FDTD の $\varepsilon_R$ の最大 & 0.139 & 0.097 \\
                          & 実験の $R$ のばらつき 0.120 未満 & 11／12 & 12／12 \\ \hline
@@ -129,15 +126,14 @@ $s$ の大きい順に，入力空間（$[0,1]$ に正規化）で互いに 0.12
 
 \begin{figure}[H]
  \centering
- \includegraphics[width=16cm]{../../vscode/surrogate/tmp_output/gpr/train_ph14_adapt1_refpeak_J17_invp_duty/specimen_range_test_spec/error_vs_param.png}
- \caption{200点で学習した GPR の $\varepsilon_D$ と $p$, $w$, $d$ の関係（色の帯は試験体の範囲，破線は実験ノイズ 0.078）}
+ \includegraphics[width=16cm]{../../vscode/surrogate/tmp_output/gpr/train_ph14_adapt1_refpeak_J17_invp_duty/specimen_range_test_spec/error_vs_param_test.png}
+ \caption{200点で学習した GPR の試験体の範囲のテスト80点での $\varepsilon_D$ と $p$, $w$, $d$ の関係（色の帯は試験体の範囲，破線は実験ノイズ 0.078）}
  \label{fig:err200}
 \end{figure}
 
 \subsection*{変化した点}
 \begin{itemize}
- \item 試験体の範囲のテストデータで誤差が下がり，実験ノイズを超える点は80点中1点になった（Table~\ref{tab:retrain}）．
- \item 試験体の範囲内の LOO の最大誤差は 0.190 から 0.108 とほぼ半分になり，$p$ の小さい側の大きな誤差が消えた（Fig.~\ref{fig:err200}）．
+ \item 試験体の範囲のテストデータで誤差が下がり，実験ノイズを超える点は80点中1点になった（Table~\ref{tab:retrain}，Fig.~\ref{fig:err200}）．
  \item 設計範囲全体のテストデータの誤差は変わらず，点を集中させたことによる他の領域の悪化はなかった．
  \item 実験の試験体12条件では，GPR と FDTD の差が12条件すべてで実験のばらつきを下回った．
 \end{itemize}
