@@ -6,7 +6,8 @@
                          (d) GPR の誤差の周波数分布 |D_GPR - D_FDTD|(f) / rms_f|D_FDTD|
                              （80 点の中央値と 10-90% の範囲、low / high の帯域も示す）
 
-    spectra/Re|Im|absR/<CSV 名>_<Re|Im|absR>.png
+    spectra/Re|Im|absR/D<eps_D 順位>_R<eps_R 順位>_<CSV 名>_<Re|Im|absR>.png
+                         順位は 200 点モデルで 1 = 誤差最大（名前順 = eps_D の悪い順）
                          点ごとに FDTD と GPR（180 点・200 点）の R を重ねる（Re / Im は ±2σ の帯つき）。
                          compare_gpr_inputs.py の spectra/ と同じ形
 
@@ -129,21 +130,33 @@ def main():
         Rm = to_R(z2["pca_mean"] + Zm @ V2, K)
         Sd = np.sqrt((Zs ** 2) @ (V2 ** 2))                    # X 空間の ±σ
         eD = np.linalg.norm((Rm - R) * X_ref, axis=1) / np.linalg.norm(D, axis=1)
-        pred[m] = (Rm, Sd, eD)
+        eR = np.linalg.norm(Rm - R, axis=1) / np.linalg.norm(R, axis=1)
+        pred[m] = (Rm, Sd, eD, eR)
+    # ファイル名の先頭に、--model（既定 200 点）での eps_D・eps_R の順位（1 = 最大誤差）を付ける。
+    # 名前順に並べると eps_D の悪い順になる
+    _, _, eD0, eR0 = pred[args.model]
+    rD = np.argsort(-eD0).argsort() + 1
+    rR = np.argsort(-eR0).argsort() + 1
     sdir = os.path.join(out, "spectra")
     parts = [("Re", "Re R", lambda r: r.real, lambda s: s[:K]),
              ("Im", "Im R", lambda r: r.imag, lambda s: s[K:]),
              ("absR", "|R|", np.abs, None)]
     for sub, *_ in parts:
-        os.makedirs(os.path.join(sdir, sub), exist_ok=True)
+        d_sub = os.path.join(sdir, sub)
+        os.makedirs(d_sub, exist_ok=True)
+        for fn_old in os.listdir(d_sub):           # 順位はモデルで変わるので、前回の図を消してから描く
+            if fn_old.endswith(".png"):
+                os.remove(os.path.join(d_sub, fn_old))
     for i, name in enumerate(names):
         base = os.path.splitext(os.path.basename(name))[0]
-        head = f"{base}  p={P[i, 0]:.2f} w={P[i, 1]:.2f} d={P[i, 2]:.2f} mm"
+        head = (f"{base}  p={P[i, 0]:.2f} w={P[i, 1]:.2f} d={P[i, 2]:.2f} mm\n"
+                f"200点の順位  eps_D {rD[i]}/{len(P)}  eps_R {rR[i]}/{len(P)}（{eR0[i]:.3f}）")
+        stem = f"D{rD[i]:02d}_R{rR[i]:02d}_{base}"
         for sub, ylab, f, sdf in parts:
             fig, ax = plt.subplots(figsize=(8, 4), layout="constrained")
             ax.plot(fM, f(R[i]), color="#0b0b0b", linewidth=2, label="FDTD")
             for m, lab, c in models:
-                Rm, Sd, eD = pred[m]
+                Rm, Sd, eD, _ = pred[m]
                 y = f(Rm[i])
                 if sdf is not None:
                     s = sdf(Sd[i])
@@ -155,7 +168,7 @@ def main():
             ax.set_title(f"{head}\n{ylab}{band}", fontsize=10)
             ax.legend(frameon=False, fontsize=8)
             _style(ax)
-            fig.savefig(os.path.join(sdir, sub, f"{base}_{sub}.png"), dpi=150)
+            fig.savefig(os.path.join(sdir, sub, f"{stem}_{sub}.png"), dpi=150)
             plt.close(fig)
     print(f"点ごとのスペクトル: {sdir}（{len(names)} 点 × Re / Im / absR）")
     for m, lab, _ in models:
